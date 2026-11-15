@@ -93,19 +93,19 @@ var hoy = new Date();
 document.getElementById('fecha').value = hoy.getFullYear() + '-' + ('0' + (hoy.getMonth() + 1)).slice(-2) + '-' + ('0' + hoy.getDate()).slice(-2);
 document.getElementById('estado').innerText = 'OK - Clientes y fecha listos';
 </script>
-<script src="https://unpkg.com"></script>
 <script>
 var URL_GOOGLE_SHEETS = "https://google.com";
 
 var catalogo = new Array();
 var lineas = new Array();
-var codeReader = null;
-var camaraAbierta = false;
+var streamActivo = null;
+var timerScan = null;
 
 function addProd(nom, u, c, eq, pu, pc) {
   catalogo.push({ nom: nom, u: String(u).trim(), c: String(c).trim(), eq: eq || 1, pu: pu || 0, pc: pc || 0 });
 }
 
+// Respaldo local por si abres el archivo en tu PC sin subirlo a GitHub
 addProd("ABRILLANTADOR MQ 5LT", "8000500082379", "8480000795946", 4, 4.73, 0);
 addProd("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
 addProd("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
@@ -116,9 +116,7 @@ addProd("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
 
 function cargarDesdeGoogle() {
   document.getElementById('estado').innerText = 'Sincronizando con Google Sheets...';
-  var proxyUrl = 'https://allorigins.win' + encodeURIComponent(URL_GOOGLE_SHEETS + '&t=' + Date.now());
-  
-  fetch(proxyUrl).then(function(r) {
+  fetch(URL_GOOGLE_SHEETS + '&t=' + Date.now()).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.text();
   }).then(function(texto) {
@@ -147,26 +145,26 @@ function cargarDesdeGoogle() {
       var nombre = (cols.at(colBase) || '').replace(/^"|"$/g, '').trim();
       var dato1 = (cols.at(colBase + 1) || '').replace(/^"|"$/g, '').trim();
 
-      if (modo === 'ART' && Boolean(nombre)) {
+      if (modo === 'ART' && nombre !== '') {
         var eanC = (cols.at(colBase + 2) || '').replace(/^"|"$/g, '').trim();
         var equiv = parseFloat((cols.at(colBase + 3) || '1').replace(/^"|"$/g, '').replace(',', '.')) || 1;
         var pUnid = parseFloat((cols.at(colBase + 4) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
         var pCaja = parseFloat((cols.at(colBase + 5) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
         nuevosProd.push({ nom: nombre, u: dato1, c: eanC, eq: equiv, pu: pUnid, pc: pCaja });
-      } else if (modo === 'CLI' && Boolean(nombre)) {
+      } else if (modo === 'CLI' && nombre !== '') {
         nuevosCli.push({ n: nombre, c: dato1 });
       }
     });
 
-    if (Boolean(nuevosProd.length)) catalogo = nuevosProd;
-    if (Boolean(nuevosCli.length)) {
+    if (nuevosProd.length !== 0) catalogo = nuevosProd;
+    if (nuevosCli.length !== 0) {
       sel.innerHTML = '';
       nuevosCli.forEach(function(item) { addCli(item.n, item.c); });
       document.getElementById('cuenta').value = sel.value;
     }
     document.getElementById('estado').innerText = 'OK - Sincronizado con Google (' + catalogo.length + ' articulos y ' + sel.options.length + ' clientes)';
   }).catch(function() {
-    document.getElementById('estado').innerText = 'OK - Modo local activo (' + catalogo.length + ' articulos)';
+    document.getElementById('estado').innerText = 'OK - Modo local activo (sube a GitHub para sincronizar Google Sheets)';
   });
 }
 
@@ -189,55 +187,41 @@ function guardarCfg() {
 function toggleCam() {
   var video = document.getElementById('videoPreview');
   var btn = document.getElementById('btnCam');
-
-  if (camaraAbierta) {
-    if (codeReader) codeReader.reset();
+  if (streamActivo) {
+    if (timerScan) clearInterval(timerScan);
+    streamActivo.getTracks().forEach(function(t) { t.stop(); });
+    streamActivo = null;
     video.style.display = 'none';
     btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
     return;
   }
-
-  if (typeof ZXing === 'undefined') {
-    alert('El lector de camara aun esta cargando, intenta de nuevo en 2 segundos.');
-    return;
-  }
-
-  btn.innerText = 'Iniciando lector...';
-  video.style.display = 'block';
-  camaraAbierta = true;
-  codeReader = new ZXing.BrowserMultiFormatReader();
-
-  codeReader.decodeFromConstraints(
-    { video: { facingMode: 'environment' } },
-    'videoPreview',
-    function(result, err) {
-      if (result) {
-        var textoLeido = result.getText();
-        document.getElementById('codigo').value = textoLeido;
-        if (navigator.vibrate) navigator.vibrate(150);
-        agregar();
-        // Pausa breve de 1.5s para no leer el mismo producto dos veces seguidas
-        codeReader.reset();
-        video.style.display = 'none';
-        btn.innerText = 'Abrir Camara (Leido OK)';
-        camaraAbierta = false;
-      }
-    }
-  ).then(function() {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function(stream) {
+    streamActivo = stream;
+    video.srcObject = stream;
+    video.style.display = 'block';
     btn.innerText = 'Cerrar Camara';
-  }).catch(function(err) {
-    video.style.display = 'none';
-    btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
-    alert('Error al abrir camara: ' + err);
-  });
+    if ('BarcodeDetector' in window) {
+      var detector = new BarcodeDetector();
+      timerScan = setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          detector.detect(video).then(function(codes) {
+            if (codes.length !== 0) {
+              var codLeido = '';
+              codes.forEach(function(x) { if (!codLeido) codLeido = x.rawValue; });
+              document.getElementById('codigo').value = codLeido;
+              agregar();
+            }
+          }).catch(function() {});
+        }
+      }, 700);
+    }
+  }).catch(function(err) { alert('Error camara: ' + err.message); });
 }
 
 function agregar() {
   var cod = document.getElementById('codigo').value.trim();
   var cant = parseInt(document.getElementById('cantidad').value, 10) || 1;
-  if (!cod) { alert('Escribe o escanea un codigo primero'); return; }
+  if (!cod) { alert('Escribe o escanea un codigo'); return; }
   var enc = null, tipo = 'UNID', pr = 0;
 
   catalogo.forEach(function(p) {
@@ -247,7 +231,7 @@ function agregar() {
     } else if (p.c === cod && !enc) {
       enc = p;
       tipo = 'CAJA x' + p.eq;
-      pr = Boolean(p.pc) ? p.pc : (p.pu * p.eq);
+      pr = p.pc !== 0 ? p.pc : (p.pu * p.eq);
     }
   });
 
