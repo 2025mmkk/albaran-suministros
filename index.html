@@ -93,147 +93,6 @@ var hoy = new Date();
 document.getElementById('fecha').value = hoy.getFullYear() + '-' + ('0' + (hoy.getMonth() + 1)).slice(-2) + '-' + ('0' + hoy.getDate()).slice(-2);
 document.getElementById('estado').innerText = 'OK - Clientes y fecha listos';
 </script>
-<script src="https://unpkg.com"></script>
-<script>
-var URL_GOOGLE_SHEETS = "https://google.com";
-
-var catalogo = new Array();
-var lineas = new Array();
-var codeReader = null;
-var camaraAbierta = false;
-
-function addProd(nom, u, c, eq, pu, pc) {
-  catalogo.push({ nom: nom, u: String(u).trim(), c: String(c).trim(), eq: eq || 1, pu: pu || 0, pc: pc || 0 });
-}
-
-addProd("ABRILLANTADOR MQ 5LT", "8000500082379", "8480000795946", 4, 4.73, 0);
-addProd("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
-addProd("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
-addProd("BAYETA 30X40 AZUL 10U", "", "", 1, 3.20, 0);
-addProd("BAYETA 30X40 ROJA 10U", "", "", 1, 3.20, 0);
-addProd("BAYETA 30X40 VERDE 10U", "", "", 1, 3.20, 0);
-addProd("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
-
-function cargarDesdeGoogle() {
-  document.getElementById('estado').innerText = 'Sincronizando con Google Sheets...';
-  var proxyUrl = 'https://allorigins.win' + encodeURIComponent(URL_GOOGLE_SHEETS + '&t=' + Date.now());
-  
-  fetch(proxyUrl).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.text();
-  }).then(function(texto) {
-    var filas = texto.split(/\r?\n/);
-    var modo = '';
-    var colBase = 1;
-    var nuevosProd = new Array();
-    var nuevosCli = new Array();
-
-    filas.forEach(function(linea) {
-      var cols = linea.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-      var c0 = (cols.at(0) || '').replace(/^"|"$/g, '').trim();
-      var c1 = (cols.at(1) || '').replace(/^"|"$/g, '').trim();
-
-      if (c0 === 'ARTICULO' || c1 === 'ARTICULO') {
-        modo = 'ART';
-        colBase = (c0 === 'ARTICULO') ? 0 : 1;
-        return;
-      }
-      if (c0 === 'NOMBRE DE RESTAURANTE' || c1 === 'NOMBRE DE RESTAURANTE') {
-        modo = 'CLI';
-        colBase = (c0 === 'NOMBRE DE RESTAURANTE') ? 0 : 1;
-        return;
-      }
-
-      var nombre = (cols.at(colBase) || '').replace(/^"|"$/g, '').trim();
-      var dato1 = (cols.at(colBase + 1) || '').replace(/^"|"$/g, '').trim();
-
-      if (modo === 'ART' && Boolean(nombre)) {
-        var eanC = (cols.at(colBase + 2) || '').replace(/^"|"$/g, '').trim();
-        var equiv = parseFloat((cols.at(colBase + 3) || '1').replace(/^"|"$/g, '').replace(',', '.')) || 1;
-        var pUnid = parseFloat((cols.at(colBase + 4) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
-        var pCaja = parseFloat((cols.at(colBase + 5) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
-        nuevosProd.push({ nom: nombre, u: dato1, c: eanC, eq: equiv, pu: pUnid, pc: pCaja });
-      } else if (modo === 'CLI' && Boolean(nombre)) {
-        nuevosCli.push({ n: nombre, c: dato1 });
-      }
-    });
-
-    if (Boolean(nuevosProd.length)) catalogo = nuevosProd;
-    if (Boolean(nuevosCli.length)) {
-      sel.innerHTML = '';
-      nuevosCli.forEach(function(item) { addCli(item.n, item.c); });
-      document.getElementById('cuenta').value = sel.value;
-    }
-    document.getElementById('estado').innerText = 'OK - Sincronizado con Google (' + catalogo.length + ' articulos y ' + sel.options.length + ' clientes)';
-  }).catch(function() {
-    document.getElementById('estado').innerText = 'OK - Modo local activo (' + catalogo.length + ' articulos)';
-  });
-}
-
-cargarDesdeGoogle();
-
-try {
-  var saved = JSON.parse(localStorage.getItem('alb_cfg') || '{}');
-  if (saved.w) document.getElementById('wa').value = saved.w;
-  if (saved.e) document.getElementById('em').value = saved.e;
-} catch (e) {}
-
-function guardarCfg() {
-  var w = document.getElementById('wa').value.replace(/\D/g, '');
-  var e = document.getElementById('em').value.trim();
-  localStorage.setItem('alb_cfg', JSON.stringify({ w: w, e: e }));
-  document.getElementById('panelConfig').removeAttribute('open');
-  alert('Destino guardado');
-}
-
-function toggleCam() {
-  var video = document.getElementById('videoPreview');
-  var btn = document.getElementById('btnCam');
-
-  if (camaraAbierta) {
-    if (codeReader) codeReader.reset();
-    video.style.display = 'none';
-    btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
-    return;
-  }
-
-  if (typeof ZXing === 'undefined') {
-    alert('El lector de camara aun esta cargando, intenta de nuevo en 2 segundos.');
-    return;
-  }
-
-  btn.innerText = 'Iniciando lector...';
-  video.style.display = 'block';
-  camaraAbierta = true;
-  codeReader = new ZXing.BrowserMultiFormatReader();
-
-  codeReader.decodeFromConstraints(
-    { video: { facingMode: 'environment' } },
-    'videoPreview',
-    function(result, err) {
-      if (result) {
-        var textoLeido = result.getText();
-        document.getElementById('codigo').value = textoLeido;
-        if (navigator.vibrate) navigator.vibrate(150);
-        agregar();
-        // Pausa breve de 1.5s para no leer el mismo producto dos veces seguidas
-        codeReader.reset();
-        video.style.display = 'none';
-        btn.innerText = 'Abrir Camara (Leido OK)';
-        camaraAbierta = false;
-      }
-    }
-  ).then(function() {
-    btn.innerText = 'Cerrar Camara';
-  }).catch(function(err) {
-    video.style.display = 'none';
-    btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
-    alert('Error al abrir camara: ' + err);
-  });
-}
-
 function agregar() {
   var cod = document.getElementById('codigo').value.trim();
   var cant = parseInt(document.getElementById('cantidad').value, 10) || 1;
@@ -251,14 +110,34 @@ function agregar() {
     }
   });
 
-  var nombre = enc ? (enc.nom + ' (' + tipo + ')') : ('Articulo EAN: ' + cod);
-  lineas.push({ cod: cod, nom: nombre, cant: cant, pr: pr, sub: cant * pr });
+  var yaExiste = null;
+  lineas.forEach(function(l) {
+    if (l.cod === cod) yaExiste = l;
+  });
+
+  if (yaExiste) {
+    yaExiste.cant += cant;
+    yaExiste.sub = yaExiste.cant * yaExiste.pr;
+  } else {
+    var nombre = enc ? (enc.nom + ' (' + tipo + ')') : ('Articulo EAN: ' + cod);
+    lineas.push({ cod: cod, nom: nombre, cant: cant, pr: pr, sub: cant * pr });
+  }
+
   document.getElementById('codigo').value = '';
   document.getElementById('cantidad').value = 1;
   dibujar();
 }
 
-function borrarLinea(i) { lineas.splice(i, 1); dibujar(); }
+function cambiarCant(i, delta) {
+  var item = lineas.at(i);
+  item.cant += delta;
+  if (item.cant <= 0) {
+    lineas.splice(i, 1);
+  } else {
+    item.sub = item.cant * item.pr;
+  }
+  dibujar();
+}
 
 function dibujar() {
   var tb = document.getElementById('tabla');
@@ -266,32 +145,16 @@ function dibujar() {
   var total = 0;
   lineas.forEach(function(l, i) {
     total += l.sub;
-    tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.cant + '</td><td>' + l.sub.toFixed(2) + '</td><td><button class="danger" onclick="borrarLinea(' + i + ')">X</button></td></tr>';
+    tb.innerHTML += '<tr>' +
+      '<td>' + l.nom + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button type="button" style="width:28px;padding:4px;margin:0;background:#525252;" onclick="cambiarCant(' + i + ',-1)">-</button> ' +
+        '<b>' + l.cant + '</b> ' +
+        '<button type="button" style="width:28px;padding:4px;margin:0;background:#0f62fe;" onclick="cambiarCant(' + i + ',1)">+</button>' +
+      '</td>' +
+      '<td>' + l.sub.toFixed(2) + '</td>' +
+      '<td><button class="danger" onclick="borrarLinea(' + i + ')">X</button></td>' +
+    '</tr>';
   });
   document.getElementById('total').innerText = total.toFixed(2);
 }
-
-function enviar() {
-  if (!lineas.length) { alert('El albaran esta vacio'); return; }
-  var cli = sel.options.item(sel.selectedIndex).text;
-  var cta = document.getElementById('cuenta').value;
-  var fec = document.getElementById('fecha').value;
-  var tot = document.getElementById('total').innerText;
-  var csv = '\uFEFFFORMULARIO DE SUMINISTRO;;;;\nFECHA;' + fec + ';;;\nRESTAURANTE;' + cli + ';;;\nCUENTA;' + cta + ';;;\nCODIGO;ARTICULO;UNIDADES;PRECIO;SUBTOTAL\n';
-  lineas.forEach(function(l) { csv += l.cod + ';' + l.nom + ';' + l.cant + ';' + l.pr.toFixed(2) + ';' + l.sub.toFixed(2) + '\n'; });
-  csv += ';;;TOTAL;' + tot + '\n';
-  var blob = new Blob(new Array(csv), { type: 'text/csv;charset=utf-8;' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'Albaran_' + cli.replace(/\W/g, '_') + '_' + fec + '.csv';
-  a.click();
-  var txt = 'ALBARAN SUMINISTROS\nFecha: ' + fec + '\nRestaurante: ' + cli + '\nCuenta: ' + cta + '\n----------------\n';
-  lineas.forEach(function(l) { txt += '- ' + l.cant + 'x ' + l.nom + ' (' + l.sub.toFixed(2) + ' EUR)\n'; });
-  txt += '----------------\nTOTAL: ' + tot + ' EUR';
-  var cfg = JSON.parse(localStorage.getItem('alb_cfg') || '{}');
-  if (cfg.w) window.open('https://wa.me' + cfg.w + '?text=' + encodeURIComponent(txt), '_blank');
-  if (cfg.e) window.location.href = 'mailto:' + cfg.e + '?subject=' + encodeURIComponent('Albaran ' + cli) + '&body=' + encodeURIComponent(txt);
-}
-</script>
-</body>
-</html>
