@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil - Suministros</title>
+  <title>Albarán Móvil v2.0</title>
   <script src="https://sheetjs.com"></script>
   <script src="https://unpkg.com" type="text/javascript"></script>
   <style>
-    :root { --primary: #0f62fe; --bg: #f4f4f4; --card: #ffffff; --text: #161616; --whatsapp: #25D366; }
+    :root { --primary: #0f62fe; --bg: #f4f4f4; --card: #ffffff; --text: #161616; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
     .card { background: var(--card); border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
     h2, h3 { margin-top: 0; font-size: 1.1rem; color: var(--primary); }
@@ -38,46 +38,35 @@
 
   <!-- BARRA SUPERIOR DE CONFIGURACIÓN GUARDADA -->
   <div id="configBanner" class="config-banner" style="display:none;">
-    <button type="button" id="btnEditarConfig" class="small-btn">⚙️ Cambiar destino</button>
+    <button type="button" class="small-btn" onclick="abrirConfig()">⚙️ Cambiar destino</button>
     <span id="resumenConfig"></span>
   </div>
 
   <!-- 0. CONFIGURACIÓN INICIAL -->
   <div class="card" id="setupSection">
-    <h2>⚙️ Configuración de Envío Inicial</h2>
-    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Define a dónde se enviarán los albaranes terminados. Se guardará en este teléfono.</p>
+    <h2>⚙️ Configuración de Envío (v2.0)</h2>
+    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Rellena el destino al que quieres enviar los albaranes (puedes rellenar uno o ambos):</p>
     
-    <label for="metodoEnvio">Método de envío preferido:</label>
-    <select id="metodoEnvio">
-      <option value="whatsapp">WhatsApp</option>
-      <option value="email">Correo Electrónico</option>
-      <option value="ambos">Ambos (WhatsApp y Correo)</option>
-    </select>
+    <label for="destinoWhatsapp">📱 Teléfono WhatsApp (con prefijo país, ej: 34600112233):</label>
+    <input type="tel" id="destinoWhatsapp" placeholder="34600112233" />
 
-    <div id="grupoWhatsapp">
-      <label for="destinoWhatsapp">Teléfono WhatsApp (con prefijo país, ej: 34600112233):</label>
-      <input type="tel" id="destinoWhatsapp" placeholder="34600000000" />
-    </div>
+    <label for="destinoEmail">📧 Correo Electrónico de recepción:</label>
+    <input type="email" id="destinoEmail" placeholder="almacen@empresa.com" />
 
-    <div id="grupoEmail" style="display:none;">
-      <label for="destinoEmail">Correo Electrónico de recepción:</label>
-      <input type="email" id="destinoEmail" placeholder="almacen@empresa.com" />
-    </div>
-
-    <button type="button" id="btnGuardarConfig" class="success">💾 Guardar y Continuar</button>
+    <button type="button" class="success" onclick="guardarConfig()">💾 Guardar y Entrar a la App</button>
+    <button type="button" class="secondary" onclick="entrarSinConfig()">⏩ Entrar directamente (Configurar luego)</button>
   </div>
 
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appPrincipal" style="display:none;">
     
-    <!-- ESTADO DE LA BASE DE DATOS AUTOMÁTICA -->
     <div id="dbStatus" class="status-bar">⏳ Cargando base de datos desde GitHub...</div>
 
     <!-- 1. DATOS DEL CLIENTE -->
     <div class="card" id="clienteSection" style="display:none;">
       <h2>1. Selección de Cliente</h2>
       <label for="selectCliente">Restaurante:</label>
-      <select id="selectCliente"></select>
+      <select id="selectCliente" onchange="cambiarCliente()"></select>
       <label>Cuenta Cliente:</label>
       <input type="text" id="cuentaCliente" readonly style="background: #e8e8e8;" />
     </div>
@@ -85,7 +74,7 @@
     <!-- 2. ESCÁNER Y ENTRADA DE ARTÍCULOS -->
     <div class="card" id="escanerSection" style="display:none;">
       <h2>2. Escaneo de Suministros</h2>
-      <button type="button" id="btnToggleCamara" class="secondary">📷 Abrir Cámara para Escanear</button>
+      <button type="button" id="btnToggleCamara" class="secondary" onclick="toggleCamara()">📷 Abrir Cámara para Escanear</button>
       <div id="reader"></div>
 
       <label for="inputCodigo">Código de Barras (EAN Unidad o Caja):</label>
@@ -97,7 +86,7 @@
           <input type="number" id="inputCantidad" value="1" min="1" />
         </div>
         <div style="flex: 2; display: flex; align-items: flex-end;">
-          <button type="button" id="btnAgregar">➕ Añadir al Albarán</button>
+          <button type="button" onclick="agregarManual()">➕ Añadir al Albarán</button>
         </div>
       </div>
     </div>
@@ -121,7 +110,7 @@
       </div>
       <div class="total-box">TOTAL: <span id="totalAlbaran">0.00</span> €</div>
       <br>
-      <button type="button" id="btnFinalizarEnviar" class="success">🚀 Finalizar, Descargar y Enviar Albarán</button>
+      <button type="button" class="success" onclick="finalizarYEnviar()">🚀 Finalizar, Descargar y Enviar</button>
     </div>
 
   </div>
@@ -132,84 +121,105 @@
     var lineasAlbaran = [];
     var html5QrCode = null;
     var camaraActiva = false;
+    var configActual = { whatsapp: '', email: '' };
 
-    // Mostrar/ocultar campos según selección
-    function actualizarCamposSetup() {
-      var metodo = document.getElementById('metodoEnvio').value;
-      document.getElementById('grupoWhatsapp').style.display = (metodo === 'whatsapp' || metodo === 'ambos') ? 'block' : 'none';
-      document.getElementById('grupoEmail').style.display = (metodo === 'email' || metodo === 'ambos') ? 'block' : 'none';
+    function guardarConfig() {
+      var wa = document.getElementById('destinoWhatsapp').value.replace(/\D/g, '');
+      var em = document.getElementById('destinoEmail').value.trim();
+
+      if (!wa && !em) {
+        alert("Introduce al menos un teléfono de WhatsApp o un Correo Electrónico, o pulsa 'Entrar directamente'.");
+        return;
+      }
+
+      configActual = { whatsapp: wa, email: em };
+      try {
+        localStorage.setItem('albaran_config_v2', JSON.stringify(configActual));
+      } catch (e) {}
+      mostrarApp();
     }
 
-    document.getElementById('metodoEnvio').addEventListener('change', actualizarCamposSetup);
+    function entrarSinConfig() {
+      mostrarApp();
+    }
 
-    // Guardar configuración y pasar a la app
-    document.getElementById('btnGuardarConfig').addEventListener('click', function() {
-      var metodo = document.getElementById('metodoEnvio').value;
-      var whatsapp = document.getElementById('destinoWhatsapp').value.replace(/\D/g, '');
-      var email = document.getElementById('destinoEmail').value.trim();
+    function abrirConfig() {
+      document.getElementById('destinoWhatsapp').value = configActual.whatsapp || '';
+      document.getElementById('destinoEmail').value = configActual.email || '';
+      document.getElementById('setupSection').style.display = 'block';
+      document.getElementById('appPrincipal').style.display = 'none';
+      document.getElementById('configBanner').style.display = 'none';
+    }
 
-      if ((metodo === 'whatsapp' || metodo === 'ambos') && !whatsapp) {
-        alert("Por favor, introduce un número de WhatsApp con prefijo (ej: 34600112233).");
-        return;
-      }
-      if ((metodo === 'email' || metodo === 'ambos') && !email) {
-        alert("Por favor, introduce un correo electrónico válido.");
-        return;
-      }
-
-      var config = { metodo: metodo, whatsapp: whatsapp, email: email };
-      try {
-        localStorage.setItem('albaran_config', JSON.stringify(config));
-      } catch (e) {
-        console.warn("No se pudo guardar en localStorage:", e);
-      }
-      aplicarConfiguracionUI(config);
-    });
-
-    function aplicarConfiguracionUI(config) {
+    function mostrarApp() {
       document.getElementById('setupSection').style.display = 'none';
       document.getElementById('appPrincipal').style.display = 'block';
       document.getElementById('configBanner').style.display = 'block';
 
-      var texto = '<b>Envío:</b> ';
-      if (config.metodo === 'whatsapp') texto += 'WhatsApp (+' + config.whatsapp + ')';
-      if (config.metodo === 'email') texto += 'Email (' + config.email + ')';
-      if (config.metodo === 'ambos') texto += 'WhatsApp y Email';
-      document.getElementById('resumenConfig').innerHTML = texto;
+      var partes = [];
+      if (configActual.whatsapp) partes.push('WA: +' + configActual.whatsapp);
+      if (configActual.email) partes.push('Email: ' + configActual.email);
+      document.getElementById('resumenConfig').innerHTML = partes.length > 0 ? '<b>Destino:</b> ' + partes.join(' | ') : '<b>Sin destino configurado</b>';
     }
 
-    document.getElementById('btnEditarConfig').addEventListener('click', function() {
-      document.getElementById('setupSection').style.display = 'block';
-      document.getElementById('appPrincipal').style.display = 'none';
-      document.getElementById('configBanner').style.display = 'none';
-      actualizarCamposSetup();
-    });
-
-    // Iniciar app y cargar datos
-    window.addEventListener('load', function() {
+    window.onload = function() {
       try {
-        var guardada = localStorage.getItem('albaran_config');
+        var guardada = localStorage.getItem('albaran_config_v2');
         if (guardada) {
-          aplicarConfiguracionUI(JSON.parse(guardada));
+          configActual = JSON.parse(guardada);
+          mostrarApp();
         }
       } catch (e) {}
       cargarExcelDesdeGitHub();
-    });
+    };
 
     function cargarExcelDesdeGitHub() {
       var statusDiv = document.getElementById('dbStatus');
-      fetch('datos.xlsx?v=' + new Date().getTime())
-        .then(function(respuesta) {
-          if (!respuesta.ok) throw new Error('No se encontró datos.xlsx');
-          return respuesta.arrayBuffer();
+      fetch('datos.xlsx?t=' + Date.now())
+        .then(function(res) {
+          if (!res.ok) throw new Error('No se encuentra datos.xlsx');
+          return res.arrayBuffer();
         })
-        .then(function(arrayBuffer) {
-          var data = new Uint8Array(arrayBuffer);
-          var workbook = XLSX.read(data, { type: 'array' });
-          var primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
-          var filas = XLSX.utils.sheet_to_json(primeraHoja, { header: 1 });
+        .then(function(buf) {
+          var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+          var hoja = wb.Sheets[wb.SheetNames[0]];
+          var filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
           procesarHojaMaestra(filas);
         })
-        .catch(function(error) {
+        .catch(function(err) {
           statusDiv.className = 'status-bar status-error';
-          statusDiv.innerHTML = '❌ <b>Error:</b> No se encontró <b>datos.xlsx</b> en GitHub. Asegúrate de subirlo con ese nombre exacto.';
+          statusDiv.innerHTML = '❌ <b>Falta datos.xlsx:</b> Sube tu archivo Excel renombrado como <b>datos.xlsx</b> a tu repositorio de GitHub.';
+        });
+    }
+
+    function procesarHojaMaestra(filas) {
+      baseArticulos = [];
+      baseClientes = [];
+      var modo = '';
+
+      for (var i = 0; i < filas.length; i++) {
+        var f = filas[i];
+        if (!f || f.length === 0) continue;
+
+        var colB = (f[1] !== undefined && f[1] !== null) ? f[1].toString().trim() : '';
+        var colC = (f[2] !== undefined && f[2] !== null) ? f[2].toString().trim() : '';
+
+        if (colB === 'ARTICULO') { modo = 'ARTICULOS'; continue; }
+        if (colB === 'NOMBRE DE RESTAURANTE') { modo = 'CLIENTES'; continue; }
+
+        if (modo === 'ARTICULOS' && colB !== '') {
+          baseArticulos.push({
+            articulo: colB,
+            eanUnidad: colC,
+            eanCaja: (f[3] !== undefined && f[3] !== null) ? f[3].toString().trim() : '',
+            equivalencia: parseFloat(f[4]) || 1,
+            precioUnidad: parseFloat(f[5]) || 0,
+            precioCaja: parseFloat(f[6]) || 0
+          });
+        } else if (modo === 'CLIENTES' && colB !== '') {
+          baseClientes.push({ nombre: colB, cuenta: colC });
+        }
+      }
+
+      var select = document.getElementById('selectCliente');
+      select.innerHTML = '';
