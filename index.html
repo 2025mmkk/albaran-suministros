@@ -105,7 +105,6 @@ function addProd(nom, u, c, eq, pu, pc) {
   catalogo.push({ nom: nom, u: String(u).trim(), c: String(c).trim(), eq: eq || 1, pu: pu || 0, pc: pc || 0 });
 }
 
-// Respaldo local por si abres el archivo en tu PC sin subirlo a GitHub
 addProd("ABRILLANTADOR MQ 5LT", "8000500082379", "8480000795946", 4, 4.73, 0);
 addProd("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
 addProd("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
@@ -145,26 +144,26 @@ function cargarDesdeGoogle() {
       var nombre = (cols.at(colBase) || '').replace(/^"|"$/g, '').trim();
       var dato1 = (cols.at(colBase + 1) || '').replace(/^"|"$/g, '').trim();
 
-      if (modo === 'ART' && nombre !== '') {
+      if (modo === 'ART' && Boolean(nombre)) {
         var eanC = (cols.at(colBase + 2) || '').replace(/^"|"$/g, '').trim();
         var equiv = parseFloat((cols.at(colBase + 3) || '1').replace(/^"|"$/g, '').replace(',', '.')) || 1;
         var pUnid = parseFloat((cols.at(colBase + 4) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
         var pCaja = parseFloat((cols.at(colBase + 5) || '0').replace(/^"|"$/g, '').replace(',', '.')) || 0;
         nuevosProd.push({ nom: nombre, u: dato1, c: eanC, eq: equiv, pu: pUnid, pc: pCaja });
-      } else if (modo === 'CLI' && nombre !== '') {
+      } else if (modo === 'CLI' && Boolean(nombre)) {
         nuevosCli.push({ n: nombre, c: dato1 });
       }
     });
 
-    if (nuevosProd.length !== 0) catalogo = nuevosProd;
-    if (nuevosCli.length !== 0) {
+    if (Boolean(nuevosProd.length)) catalogo = nuevosProd;
+    if (Boolean(nuevosCli.length)) {
       sel.innerHTML = '';
       nuevosCli.forEach(function(item) { addCli(item.n, item.c); });
       document.getElementById('cuenta').value = sel.value;
     }
     document.getElementById('estado').innerText = 'OK - Sincronizado con Google (' + catalogo.length + ' articulos y ' + sel.options.length + ' clientes)';
-  }).catch(function() {
-    document.getElementById('estado').innerText = 'OK - Modo local activo (sube a GitHub para sincronizar Google Sheets)';
+  }).catch(function(err) {
+    document.getElementById('estado').innerText = 'Aviso Google: ' + err.message;
   });
 }
 
@@ -205,7 +204,7 @@ function toggleCam() {
       timerScan = setInterval(function() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
           detector.detect(video).then(function(codes) {
-            if (codes.length !== 0) {
+            if (Boolean(codes.length)) {
               var codLeido = '';
               codes.forEach(function(x) { if (!codLeido) codLeido = x.rawValue; });
               document.getElementById('codigo').value = codLeido;
@@ -231,7 +230,7 @@ function agregar() {
     } else if (p.c === cod && !enc) {
       enc = p;
       tipo = 'CAJA x' + p.eq;
-      pr = p.pc !== 0 ? p.pc : (p.pu * p.eq);
+      pr = Boolean(p.pc) ? p.pc : (p.pu * p.eq);
     }
   });
 
