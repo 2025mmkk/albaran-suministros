@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v7.0</title>
+  <title>Albarán Móvil v8.0</title>
   <script src="https://cloudflare.com"></script>
   <script src="https://unpkg.com"></script>
   <style>
@@ -28,7 +28,7 @@
 
   <!-- PANTALLA 1: CONFIGURACIÓN -->
   <div class="card" id="p1">
-    <h2>⚙️ Configuración de Envío (v7.0)</h2>
+    <h2>⚙️ Configuración de Envío (v8.0)</h2>
     <label>📱 WhatsApp destino (ej: 34600112233):</label>
     <input type="tel" id="wa" placeholder="34600112233">
     
@@ -43,7 +43,6 @@
   <div id="p2" style="display:none;">
     <div id="msgDb" class="status">⏳ Conectando con datos.xlsx...</div>
     
-    <!-- BOTÓN DE RESPALDO POR SI FALLA LA NUBE -->
     <div id="boxManual" style="display:none;" class="card">
       <label>📂 Cargar Excel manualmente desde este dispositivo:</label>
       <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="leerArchivoLocal(this)">
@@ -87,8 +86,13 @@
       if (guardar) {
         var w = document.getElementById('wa').value.replace(/\D/g, '');
         var e = document.getElementById('em').value.trim();
-        if (!w && !e) { alert('Escribe un teléfono o correo, o pulsa Entrar directamente.'); return; }
-        localStorage.setItem('cfg_v7', JSON.stringify({ w: w, e: e }));
+        if (!w && !e) {
+          alert('Escribe un teléfono o correo, o pulsa Entrar directamente.');
+          return;
+        }
+        try {
+          localStorage.setItem('cfg_v8', JSON.stringify({ w: w, e: e }));
+        } catch (err) {}
       }
       document.getElementById('p1').style.display = 'none';
       document.getElementById('p2').style.display = 'block';
@@ -97,39 +101,55 @@
 
     function procesarBuffer(buf) {
       var m = document.getElementById('msgDb');
-      var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-      var nombreHoja = wb.SheetNames.at(0);
-      var rows = XLSX.utils.sheet_to_json(wb.Sheets[nombreHoja], { header: 'A', defval: '' });
-      arts = [];
-      var sel = document.getElementById('selCli');
-      sel.innerHTML = '';
-      var modo = '';
+      try {
+        var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+        var nombreHoja = wb.SheetNames.at(0);
+        var hoja = Reflect.get(wb.Sheets, nombreHoja);
+        var rows = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
+        
+        arts = [];
+        var sel = document.getElementById('selCli');
+        sel.innerHTML = '';
+        var modo = '';
 
-      for (var i = 0; i < rows.length; i++) {
-        var r = rows.at(i);
-        var bCol = String(r.B || '').trim();
-        var cCol = String(r.C || '').trim();
-        if (bCol === 'ARTICULO') { modo = 'A'; continue; }
-        if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; continue; }
+        rows.forEach(function(r) {
+          var bCol = String(r.B || '').trim();
+          var cCol = String(r.C || '').trim();
+          if (bCol === 'ARTICULO') { modo = 'A'; return; }
+          if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; return; }
 
-        if (modo === 'A' && bCol) {
-          arts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
-        } else if (modo === 'C' && bCol) {
-          var o = document.createElement('option');
-          o.text = bCol;
-          o.value = cCol;
-          sel.add(o);
+          if (modo === 'A' && bCol) {
+            arts.push({
+              nom: bCol,
+              u: cCol,
+              c: String(r.D || '').trim(),
+              eq: parseFloat(r.E) || 1,
+              pu: parseFloat(r.F) || 0,
+              pc: parseFloat(r.G) || 0
+            });
+          } else if (modo === 'C' && bCol) {
+            var o = document.createElement('option');
+            o.text = bCol;
+            o.value = cCol;
+            sel.add(o);
+          }
+        });
+
+        if (sel.options.length > 0) {
+          document.getElementById('ctaCli').value = sel.value;
         }
+        m.className = 'status';
+        m.innerHTML = '✅ ¡Listo! Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
+        document.getElementById('boxManual').style.display = 'none';
+      } catch (e) {
+        m.className = 'status err';
+        m.innerHTML = '❌ Error al leer el formato del Excel: ' + e.message;
+        document.getElementById('boxManual').style.display = 'block';
       }
-      if (sel.options.length > 0) document.getElementById('ctaCli').value = sel.value;
-      m.className = 'status';
-      m.innerHTML = '✅ ¡Listo! Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
-      document.getElementById('boxManual').style.display = 'none';
     }
 
     function cargarExcel() {
       var m = document.getElementById('msgDb');
-      // Construye la ruta exacta basándose en la URL actual
       var baseUrl = window.location.href.split('?').at(0);
       if (baseUrl.endsWith('index.html')) {
         baseUrl = baseUrl.replace('index.html', '');
@@ -140,7 +160,7 @@
 
       fetch(urlExcel)
         .then(function(r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + urlExcel);
+          if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.arrayBuffer();
         })
         .then(function(b) {
@@ -148,16 +168,18 @@
         })
         .catch(function(err) {
           m.className = 'status err';
-          m.innerHTML = '❌ No se pudo cargar automático (' + err.message + '). Puedes seleccionarlo abajo:';
+          m.innerHTML = '❌ No se encontró datos.xlsx automático (' + err.message + '). Selecciónalo abajo:';
           document.getElementById('boxManual').style.display = 'block';
         });
     }
 
     function leerArchivoLocal(input) {
-      var file = input.files.at(0);
+      var file = input.files.item(0);
       if (!file) return;
       var reader = new FileReader();
-      reader.onload = function(e) { procesarBuffer(e.target.result); };
+      reader.onload = function(e) {
+        procesarBuffer(e.target.result);
+      };
       reader.readAsArrayBuffer(file);
     }
 
@@ -165,16 +187,24 @@
       var d = document.getElementById('reader');
       var b = document.getElementById('btnCam');
       if (!camOn) {
-        d.style.display = 'block'; b.innerText = '⏹️ Cerrar Cámara';
+        d.style.display = 'block';
+        b.innerText = '⏹️ Cerrar Cámara';
         qr = new Html5Qrcode('reader');
         qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, function(txt) {
           document.getElementById('cod').value = txt;
           addArt();
-          qr.pause(); setTimeout(function() { qr.resume(); }, 1200);
-        }).catch(function(e) { alert('Error cámara: ' + e); });
+          qr.pause();
+          setTimeout(function() { qr.resume(); }, 1200);
+        }).catch(function(e) {
+          alert('Error cámara: ' + e);
+        });
         camOn = true;
       } else {
-        qr.stop().then(function() { d.style.display = 'none'; b.innerText = '📷 Abrir Cámara'; camOn = false; });
+        qr.stop().then(function() {
+          d.style.display = 'none';
+          b.innerText = '📷 Abrir Cámara';
+          camOn = false;
+        });
       }
     }
 
@@ -182,14 +212,25 @@
       var c = document.getElementById('cod').value.trim();
       var q = parseInt(document.getElementById('cant').value, 10) || 1;
       if (!c) return;
-      var enc = null, tipo = 'UNID', pr = 0;
+      var enc = null;
+      var tipo = 'UNID';
+      var pr = 0;
 
-      for (var i = 0; i < arts.length; i++) {
-        var item = arts.at(i);
-        if (item.u === c) { enc = item; pr = enc.pu; break; }
-        if (item.c === c) { enc = item; tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); break; }
+      arts.forEach(function(item) {
+        if (item.u === c && !enc) {
+          enc = item;
+          pr = enc.pu;
+        } else if (item.c === c && !enc) {
+          enc = item;
+          tipo = 'CAJA';
+          pr = enc.pc || (enc.pu * enc.eq);
+        }
+      });
+
+      if (!enc) {
+        alert('Código no encontrado: ' + c);
+        return;
       }
-      if (!enc) { alert('Código no encontrado: ' + c); return; }
 
       lineas.push({ cod: c, nom: enc.nom + ' (' + tipo + ')', q: q, pr: pr, sub: q * pr });
       document.getElementById('cod').value = '';
@@ -201,27 +242,19 @@
       var tb = document.getElementById('tb');
       tb.innerHTML = '';
       var t = 0;
-      for (var i = 0; i < lineas.length; i++) {
-        var l = lineas.at(i);
+      lineas.forEach(function(l, idx) {
         t += l.sub;
-        tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.q + '</td><td>' + l.sub.toFixed(2) + '€</td><td><button class="danger" onclick="lineas.splice(' + i + ',1);pintar()">X</button></td></tr>';
-      }
+        tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.q + '</td><td>' + l.sub.toFixed(2) + '€</td><td><button class="danger" onclick="lineas.splice(' + idx + ',1);pintar()">X</button></td></tr>';
+      });
       document.getElementById('tot').innerText = t.toFixed(2);
     }
 
     function enviar() {
-      if (!lineas.length) { alert('Albarán vacío'); return; }
-      var sel = document.getElementById('selCli');
-      var cli = sel.options[sel.selectedIndex].text;
-      var cta = document.getElementById('ctaCli').value;
-      var tot = document.getElementById('tot').innerText;
-      var fec = new Date().toISOString().slice(0, 10);
-
-      var wsData = [['FORMULARIO DE SUMINISTRO'], ['RESTAURANTE', cli], ['CUENTA', cta], ['CODIGO', 'ARTICULO', 'UNIDADES', 'PRECIO', 'SUBTOTAL']];
-      for (var i = 0; i < lineas.length; i++) {
-        var l = lineas.at(i);
-        wsData.push([l.cod, l.nom, l.q, l.pr, l.sub]);
+      if (!lineas.length) {
+        alert('Albarán vacío');
+        return;
       }
-      wsData.push(['', '', '', 'TOTAL', tot]);
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'ALBARAN');
+      var sel = document.getElementById('selCli');
+      var opcion = sel.options.item(sel.selectedIndex);
+      var cli = opcion ? opcion.text : 'Cliente';
+      var cta = document.getElementById('ctaCli').value;
