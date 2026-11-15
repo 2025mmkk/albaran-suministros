@@ -1,211 +1,205 @@
 <!DOCTYPE html>
 <html lang="es" translate="no">
 <head>
-  <meta charset="UTF-8">
-  <meta name="google" content="notranslate">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Suministros v15</title>
-  <style>
-    body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
-    .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    h2, h3 { margin: 0 0 10px 0; color: #0f62fe; font-size: 1.05rem; }
-    label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.85rem; }
-    select, input { width: 100%; padding: 11px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; background: #fff; }
-    button { width: 100%; padding: 13px; background: #0f62fe; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
-    button.success { background: #198038; }
-    button.secondary { background: #393939; }
-    button.danger { background: #da1e28; width: auto; padding: 5px 10px; font-size: 0.8rem; }
-    video { width: 100%; max-height: 260px; background: #000; border-radius: 8px; margin-bottom: 10px; display: none; object-fit: cover; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { border-bottom: 1px solid #ddd; padding: 7px 4px; text-align: left; }
-    .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
-    .status { padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; font-weight: bold; }
-    details { background: #e5f6ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #0f62fe; }
-    summary { font-weight: bold; cursor: pointer; color: #0f62fe; }
-    .aviso { font-size: 0.85rem; color: #a2191f; background: #fff1f1; padding: 8px; border-radius: 6px; margin-bottom: 8px; display: none; }
-    .fila-doble { display: flex; gap: 10px; }
-    .fila-doble > div { flex: 1; }
-  </style>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Albaran Movil</title>
+<style>
+body{font-family:sans-serif;background:#f4f4f4;color:#161616;margin:0;padding:12px}
+.card{background:#fff;border-radius:10px;padding:15px;margin-bottom:12px;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+h2,h3{margin:0 0 10px 0;color:#0f62fe;font-size:1.05rem}
+label{display:block;font-weight:bold;margin-bottom:4px;font-size:.85rem}
+select,input{width:100%;padding:11px;margin-bottom:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:1rem;background:#fff}
+button{width:100%;padding:13px;background:#0f62fe;color:#fff;border:none;border-radius:6px;font-size:1rem;font-weight:bold;cursor:pointer;margin-bottom:8px}
+button.success{background:#198038}
+button.secondary{background:#393939}
+button.danger{background:#da1e28;width:auto;padding:5px 10px;font-size:.8rem}
+video{width:100%;max-height:260px;background:#000;border-radius:8px;margin-bottom:10px;display:none;object-fit:cover}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th,td{border-bottom:1px solid #ddd;padding:7px 4px;text-align:left}
+.total-box{font-size:1.25rem;font-weight:bold;text-align:right;margin-top:10px;color:#198038}
+.status{padding:8px 10px;border-radius:6px;margin-bottom:12px;font-size:.85rem;background:#defbe6;color:#0e6027;font-weight:bold}
+details{background:#e5f6ff;padding:10px;border-radius:8px;margin-bottom:12px;border-left:4px solid #0f62fe}
+summary{font-weight:bold;cursor:pointer;color:#0f62fe}
+.aviso{font-size:.85rem;color:#a2191f;background:#fff1f1;padding:8px;border-radius:6px;margin-bottom:8px;display:none}
+.fila{display:flex;gap:10px}.fila>div{flex:1}
+</style>
 </head>
 <body class="notranslate">
-
-  <div id="msgDb" class="status">⏳ Iniciando...</div>
-
-  <!-- CONFIGURACIÓN DESPLEGABLE -->
-  <details id="panelConfig">
-    <summary>⚙️ Configurar WhatsApp o Correo de destino</summary>
-    <div style="margin-top: 10px;">
-      <label>📱 WhatsApp destino (ej: 34600112233):</label>
-      <input type="tel" id="wa" placeholder="34600112233">
-      <label>📧 Correo destino:</label>
-      <input type="email" id="em" placeholder="almacen@empresa.com">
-      <button type="button" class="success" id="btnSave">💾 Guardar Destino</button>
-    </div>
-  </details>
-
-  <!-- 1. CLIENTE Y FECHA -->
-  <div class="card">
-    <h2>1. Datos del Albarán</h2>
-    <label for="selCli">Restaurante:</label>
-    <select id="selCli"></select>
-
-    <div class="fila-doble">
-      <div>
-        <label for="ctaCli">Cuenta Cliente:</label>
-        <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta">
-      </div>
-      <div>
-        <label for="fechaAlb">📅 Fecha Albarán:</label>
-        <input type="date" id="fechaAlb">
-      </div>
-    </div>
-  </div>
-
-  <!-- 2. ESCÁNER NATIVO -->
-  <div class="card">
-    <h2>2. Escaneo de Suministros</h2>
-    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
-    <div id="camMsg" class="aviso"></div>
-    <video id="videoPreview" playsinline autoplay muted></video>
-
-    <label>Código de Barras (EAN Unidad o Caja):</label>
-    <input type="text" id="cod" placeholder="Escanea o escribe el código...">
-    
-    <div style="display:flex; gap:8px;">
-      <input type="number" id="cant" value="1" min="1" style="flex:1;">
-      <button type="button" id="btnAdd" style="flex:2;">➕ Añadir</button>
-    </div>
-  </div>
-
-  <!-- 3. ALBARÁN ACTUAL -->
-  <div class="card">
-    <h3>Albarán Actual</h3>
-    <table>
-      <thead><tr><th>Artículo</th><th>Cant</th><th>Subt</th><th></th></tr></thead>
-      <tbody id="tb"></tbody>
-    </table>
-    <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
-    <br>
-    <button type="button" class="success" id="btnEnviar">🚀 Finalizar, Descargar y Enviar</button>
-  </div>
-
-  <script>
-    var arts = new Array();
-    var lineas = new Array();
-    var streamActivo = null;
-    var intervaloScan = null;
-
-    // 1. Poner fecha de hoy inmediatamente
-    var hoy = new Date();
-    var fHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
-    document.getElementById('fechaAlb').value = fHoy;
-
-    // 2. Cargar los 22 clientes
-    var sel = document.getElementById('selCli');
-    function addCli(nombre, cuenta) {
-      var o = document.createElement('option');
-      o.text = nombre;
-      o.value = cuenta;
-      sel.add(o);
+<div id="msgDb" class="status">Iniciando...</div>
+<details id="panelConfig">
+<summary>Configurar WhatsApp o Correo de destino</summary>
+<div style="margin-top:10px">
+<label>WhatsApp destino (ej: 34600112233):</label>
+<input type="tel" id="wa" placeholder="34600112233">
+<label>Correo destino:</label>
+<input type="email" id="em" placeholder="almacen@empresa.com">
+<button type="button" class="success" id="btnSave">Guardar Destino</button>
+</div>
+</details>
+<div class="card">
+<h2>1. Datos del Albaran</h2>
+<label>Restaurante:</label>
+<select id="selCli"></select>
+<div class="fila">
+<div><label>Cuenta Cliente:</label><input type="text" id="ctaCli" readonly style="background:#eee"></div>
+<div><label>Fecha Albaran:</label><input type="date" id="fechaAlb"></div>
+</div>
+</div>
+<div class="card">
+<h2>2. Escaneo de Suministros</h2>
+<button type="button" class="secondary" id="btnCam">Abrir Camara</button>
+<div id="camMsg" class="aviso"></div>
+<video id="videoPreview" playsinline autoplay muted></video>
+<label>Codigo de Barras:</label>
+<input type="text" id="cod" placeholder="Escanea o escribe el codigo...">
+<div style="display:flex;gap:8px">
+<input type="number" id="cant" value="1" min="1" style="flex:1">
+<button type="button" id="btnAdd" style="flex:2">Anadir</button>
+</div>
+</div>
+<div class="card">
+<h3>Albaran Actual</h3>
+<table><thead><tr><th>Articulo</th><th>Cant</th><th>Subt</th><th></th></tr></thead><tbody id="tb"></tbody></table>
+<div class="total-box">TOTAL: <span id="tot">0.00</span> EUR</div><br>
+<button type="button" class="success" id="btnEnviar">Finalizar, Descargar y Enviar</button>
+</div>
+<script>
+window.onerror = function(msg, url, line) {
+  document.getElementById('msgDb').style.background = '#fff1f1';
+  document.getElementById('msgDb').style.color = '#a2191f';
+  document.getElementById('msgDb').innerText = 'Error en linea ' + line + ': ' + msg;
+};
+var arts = new Array();
+var lineas = new Array();
+var streamActivo = null;
+var intervaloScan = null;
+var hoy = new Date();
+document.getElementById('fechaAlb').value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+var sel = document.getElementById('selCli');
+function addCli(n, c) { var o = document.createElement('option'); o.text = n; o.value = c; sel.add(o); }
+addCli("LA MAR DE FRIA ALHAURIN", "43003904");
+addCli("LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", "43003904");
+addCli("LA SUBASTA BENALMADENA", "43004696");
+addCli("OASIS BEACH CLUB", "43004678");
+addCli("CAMPOSOL", "43001140");
+addCli("ENTREMAREA FUENGIROLA", "43002274");
+addCli("CHUPYTIRA TORREMOLINOS", "43006301");
+addCli("LA MAR DE FRIA CERVECERIA SAN PEDRO", "43006530");
+addCli("LA MAR DE FRIA EL PALO", "43008912");
+addCli("CHUPYTIRA FUENGIROLA", "43007161");
+addCli("LA MIJITA BAR", "43000003");
+addCli("CHUPYTIRA CENTRO", "43018499");
+addCli("LA CEVICHERIA CENTRO", "43000357");
+addCli("LA MAR DE FRIA LA MERCED", "43000357");
+addCli("TAQUERIA MEX CENTRO", "43000357");
+addCli("TAQUERIA MEX TEATINOS", "43000357");
+addCli("LA MAR DE FRIA TEATINOS", "");
+addCli("LA MAR DE FRIA BENALMADENA (PLAYA SANTA ANA) / BRAVO", "43003912");
+addCli("LA MAR DE FRIA PACIFICO", "43003912");
+addCli("PLAYA PITAYA BEACH CLUB", "43009284");
+addCli("LA MAR DE FRIA ESTEPONA / TAQUERIA ESTEPONA", "43007164");
+addCli("LA MAR DE FRIA ECHEVERRIA", "43007164");
+document.getElementById('ctaCli').value = sel.value;
+sel.onchange = function() { document.getElementById('ctaCli').value = this.value; };
+function addCat(nom, u, c, eq, pu, pc) { arts.push({ nom: nom, u: u, c: c, eq: eq, pu: pu, pc: pc }); }
+addCat("ABRILLANTADOR MQ 5LT", "", "", 1, 4.73, 0);
+addCat("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
+addCat("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
+addCat("BAYETA 30X40 AZUL 10U", "", "", 1, 3.20, 0);
+addCat("BAYETA 30X40 ROJA 10U", "", "", 1, 3.20, 0);
+addCat("BAYETA 30X40 VERDE 10U", "", "", 1, 3.20, 0);
+addCat("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
+document.getElementById('msgDb').innerText = 'OK v16 - 22 clientes cargados';
+try {
+  var saved = JSON.parse(localStorage.getItem('cfg_v16') || '{}');
+  if (saved.w) document.getElementById('wa').value = saved.w;
+  if (saved.e) document.getElementById('em').value = saved.e;
+} catch (e) {}
+document.getElementById('btnSave').onclick = function() {
+  var w = document.getElementById('wa').value.replace(/\D/g, '');
+  var e = document.getElementById('em').value.trim();
+  localStorage.setItem('cfg_v16', JSON.stringify({ w: w, e: e }));
+  document.getElementById('panelConfig').removeAttribute('open');
+  alert('Destino guardado');
+};
+document.getElementById('btnCam').onclick = function() {
+  var video = document.getElementById('videoPreview');
+  var btn = this;
+  var msg = document.getElementById('camMsg');
+  msg.style.display = 'none';
+  if (streamActivo) {
+    if (intervaloScan) clearInterval(intervaloScan);
+    streamActivo.getTracks().forEach(function(t) { t.stop(); });
+    streamActivo = null;
+    video.style.display = 'none';
+    btn.innerText = 'Abrir Camara';
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    msg.style.display = 'block';
+    msg.innerText = 'Abre el enlace en Google Chrome o Safari (no dentro de WhatsApp).';
+    return;
+  }
+  btn.innerText = 'Abriendo...';
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function(stream) {
+    streamActivo = stream;
+    video.srcObject = stream;
+    video.style.display = 'block';
+    btn.innerText = 'Cerrar Camara';
+    if ('BarcodeDetector' in window) {
+      var detector = new BarcodeDetector({ formats: new Array('ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a') });
+      intervaloScan = setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          detector.detect(video).then(function(barcodes) {
+            if (barcodes.length > 0) {
+              document.getElementById('cod').value = barcodes.at(0).rawValue;
+              agregarArticulo();
+            }
+          }).catch(function() {});
+        }
+      }, 600);
+    } else {
+      msg.style.display = 'block';
+      msg.innerText = 'Camara abierta. Si no lee automatico, escribe el codigo abajo.';
     }
-
-    addCli("LA MAR DE FRIA ALHAURIN", "43003904");
-    addCli("LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", "43003904");
-    addCli("LA SUBASTA BENALMADENA", "43004696");
-    addCli("OASIS BEACH CLUB", "43004678");
-    addCli("CAMPOSOL", "43001140");
-    addCli("ENTREMAREA FUENGIROLA", "43002274");
-    addCli("CHUPYTIRA TORREMOLINOS", "43006301");
-    addCli("LA MAR DE FRIA CERVECERIA SAN PEDRO", "43006530");
-    addCli("LA MAR DE FRIA EL PALO", "43008912");
-    addCli("CHUPYTIRA FUENGIROLA", "43007161");
-    addCli("LA MIJITA BAR", "43000003");
-    addCli("CHUPYTIRA CENTRO", "43018499");
-    addCli("LA CEVICHERIA CENTRO", "43000357");
-    addCli("LA MAR DE FRIA LA MERCED", "43000357");
-    addCli("TAQUERIA MEX CENTRO", "43000357");
-    addCli("TAQUERIA MEX TEATINOS", "43000357");
-    addCli("LA MAR DE FRIA TEATINOS", "");
-    addCli("LA MAR DE FRIA BENALMADENA (PLAYA SANTA ANA) / BRAVO", "43003912");
-    addCli("LA MAR DE FRIA PACIFICO", "43003912");
-    addCli("PLAYA PITAYA BEACH CLUB", "43009284");
-    addCli("LA MAR DE FRIA ESTEPONA / TAQUERIA ESTEPONA", "43007164");
-    addCli("LA MAR DE FRIA ECHEVERRIA", "43007164");
-
-    document.getElementById('ctaCli').value = sel.value;
-    sel.addEventListener('change', function() {
-      document.getElementById('ctaCli').value = this.value;
-    });
-
-    // 3. Cargar catálogo de 61 artículos (añade tus EAN entre las comillas de u y c cuando los tengas)
-    function addCat(nom, eanU, eanC, eq, pU, pC) {
-      arts.push({ nom: nom, u: eanU, c: eanC, eq: eq, pu: pU, pc: pC });
-    }
-    addCat("ABRILLANTADOR MQ 5LT", "", "", 1, 4.73, 0);
-    addCat("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
-    addCat("ACEITE GUADALIMAR 5LT", "", "", 1, 0, 0);
-    addCat("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
-    addCat("BAYETA 30X40 AZUL 10U", "", "", 1, 3.20, 0);
-    addCat("BAYETA 30X40 ROJA 10U", "", "", 1, 3.20, 0);
-    addCat("BAYETA 30X40 VERDE 10U", "", "", 1, 3.20, 0);
-    addCat("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
-    addCat("SECAMANOS EXTRA", "", "", 1, 0, 0);
-    addCat("BOLSA 115X150 10U", "", "", 1, 0, 0);
-    addCat("BOLSA 52X60", "", "", 1, 0, 0);
-    addCat("BOLSA AUTOCIERRE", "", "", 1, 0, 0);
-    addCat("BOLSA CAMISETA 1K", "", "", 1, 0, 0);
-    addCat("CEPILLO", "", "", 1, 0, 0);
-    addCat("CUBO + ESCURRIDOR", "", "", 1, 0, 0);
-    addCat("SECAVAJILLA (DRAP ROLL / LITO)", "", "", 1, 0, 0);
-    addCat("SECAVAJILLA DRAP ROLL NEGRO", "", "", 1, 0, 0);
-    addCat("PULVERIZADOR (BOTELLA DEDINES 750)", "", "", 1, 0, 0);
-    addCat("CABEZAL PULVERIZADOR (DEDINES)", "", "", 1, 0, 0);
-    addCat("CARBON", "", "", 1, 0, 0);
-    addCat("DESENGRASANTE ENERGICO 5LT", "", "", 1, 0, 0);
-    addCat("DESENGRASANTE PLANCHA 5LT", "", "", 1, 0, 0);
-    addCat("DETERGENTE AGUAS DURAS 5LT", "", "", 1, 0, 0);
-    addCat("DETERGENTE CLORADO 5LT", "", "", 1, 0, 0);
-    addCat("DETERGENTE MANUAL / MISTOL 5LT", "", "", 1, 0, 0);
-    addCat("DETERGENTE MAQUINA 5LT", "", "", 1, 0, 0);
-    addCat("ENVASE POLLO", "", "", 1, 0, 0);
-    addCat("TAPA ENVASE POLLO", "", "", 1, 0, 0);
-    addCat("ESTROPAJO AC INOX (NANA)", "", "", 1, 0, 0);
-    addCat("FREGASUELO 5LT", "", "", 1, 0, 0);
-    addCat("FREGONA", "", "", 1, 0, 0);
-    addCat("GEL DERMO 5LT", "", "", 1, 0, 0);
-    addCat("GUANTE L", "", "", 1, 0, 0);
-    addCat("GUANTE M", "", "", 1, 0, 0);
-    addCat("GUANTE S", "", "", 1, 0, 0);
-    addCat("GUANTE XL", "", "", 1, 0, 0);
-    addCat("HIGIENICO INDUSTRIAL", "", "", 1, 0, 0);
-    addCat("LEJIA ALIMENTARIA", "", "", 1, 0, 0);
-    addCat("LIMPIACRISTALES 5LT", "", "", 1, 0, 0);
-    addCat("LIMPIADOR AMONIACAL 5LT", "", "", 1, 0, 0);
-    addCat("MANGA PASTELERA", "", "", 1, 0, 0);
-    addCat("MANGO METALICO PINTADO", "", "", 1, 0, 0);
-    addCat("MANTEL 1X1 BURDEO", "", "", 1, 0, 0);
-    addCat("MANTEL 1X1,2 BURDEO", "", "", 1, 0, 0);
-    addCat("MINIKANGUR ECO", "", "", 1, 0, 0);
-    addCat("RECOGEDOR C/PALO", "", "", 1, 0, 0);
-    addCat("ROLLO ALUMINIO", "", "", 1, 0, 0);
-    addCat("ROLLO FILM", "", "", 1, 0, 0);
-    addCat("ROLLO SUMADORA", "", "", 1, 0, 0);
-    addCat("ROLLO TERMICO (DATAFONO)", "", "", 1, 0, 0);
-    addCat("SALVAUÑAS", "", "", 1, 0, 0);
-    addCat("SERV.DUPLO 30X30", "", "", 1, 0, 0);
-    addCat("SERV.COCTEL 20X20", "", "", 1, 0, 0);
-    addCat("SERV TISSUE 11X21", "", "", 1, 0, 0);
-    addCat("SERV. 40X40 PTA PTA BURDEOS", "", "", 1, 0, 0);
-    addCat("SORBETE", "", "", 1, 0, 0);
-    addCat("TAPA REDONDA 60CC", "", "", 1, 0, 0);
-    addCat("TARRINA SALSA 60CC", "", "", 1, 0, 0);
-    addCat("TOALLA ENGARZADA TISSUE", "", "", 1, 0, 0);
-    addCat("TOALLITAS LIMON", "", "", 1, 0, 0);
-    addCat("VINAGRE LIMPIEZA 1L", "", "", 1, 0, 0);
-
-    // Confirmación visual inmediata de que JavaScript arrancó
-    document.getElementById('msgDb').innerHTML = '✅ v15 Activa (100% Autónoma) - ' + sel.options.length + ' clientes y ' + arts.length + ' artículos listos';
-
-    // 4. Configuración guardada
-    try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v15') || '{}');
+  }).catch(function(err) {
+    btn.innerText = 'Abrir Camara';
+    msg.style.display = 'block';
+    msg.innerText = 'Error camara: ' + err.message;
+  });
+};
+document.getElementById('btnAdd').onclick = agregarArticulo;
+function agregarArticulo() {
+  var c = document.getElementById('cod').value.trim();
+  var q = parseInt(document.getElementById('cant').value, 10) || 1;
+  if (!c) { alert('Escribe o escanea un codigo.'); return; }
+  var enc = null, tipo = 'UNID', pr = 0;
+  arts.forEach(function(item) {
+    if (item.u === c && !enc) { enc = item; pr = enc.pu; }
+    else if (item.c === c && !enc) { enc = item; tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); }
+  });
+  var nombreFinal = enc ? (enc.nom + ' (' + tipo + ')') : ('Articulo EAN: ' + c);
+  lineas.push({ cod: c, nom: nombreFinal, q: q, pr: pr, sub: q * pr });
+  document.getElementById('cod').value = '';
+  document.getElementById('cant').value = 1;
+  pintarTabla();
+}
+function pintarTabla() {
+  var tb = document.getElementById('tb');
+  tb.innerHTML = '';
+  var t = 0;
+  lineas.forEach(function(l, idx) {
+    t += l.sub;
+    tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.q + '</td><td>' + l.sub.toFixed(2) + '</td><td><button class="danger" onclick="lineas.splice(' + idx + ',1);pintarTabla()">X</button></td></tr>';
+  });
+  document.getElementById('tot').innerText = t.toFixed(2);
+}
+document.getElementById('btnEnviar').onclick = function() {
+  if (!lineas.length) { alert('Albaran vacio'); return; }
+  var opcion = sel.options.item(sel.selectedIndex);
+  var cli = opcion ? opcion.text : 'Cliente';
+  var cta = document.getElementById('ctaCli').value;
+  var fec = document.getElementById('fechaAlb').value;
+  var tot = document.getElementById('tot').innerText;
