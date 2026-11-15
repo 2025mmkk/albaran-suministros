@@ -92,14 +92,13 @@ var hoy = new Date();
 document.getElementById('fecha').value = hoy.getFullYear() + '-' + ('0' + (hoy.getMonth() + 1)).slice(-2) + '-' + ('0' + hoy.getDate()).slice(-2);
 document.getElementById('estado').innerText = 'OK - Clientes y fecha listos';
 </script>
-<script src="https://unpkg.com"></script>
 <script>
 var URL_GOOGLE_SHEETS = "https://google.com";
 
 var catalogo = new Array();
 var lineas = new Array();
-var codeReader = null;
-var camaraAbierta = false;
+var streamActivo = null;
+var timerScan = null;
 
 function addProd(nom, u, c, eq, pu, pc) {
   catalogo.push({ nom: nom, u: String(u).trim(), c: String(c).trim(), eq: eq || 1, pu: pu || 0, pc: pc || 0 });
@@ -115,9 +114,7 @@ addProd("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
 
 function cargarDesdeGoogle() {
   document.getElementById('estado').innerText = 'Sincronizando con Google Sheets...';
-  var proxyUrl = 'https://allorigins.win' + encodeURIComponent(URL_GOOGLE_SHEETS + '&t=' + Date.now());
-  
-  fetch(proxyUrl).then(function(r) {
+  fetch(URL_GOOGLE_SHEETS + '&t=' + Date.now()).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.text();
   }).then(function(texto) {
@@ -164,8 +161,8 @@ function cargarDesdeGoogle() {
       document.getElementById('cuenta').value = sel.value;
     }
     document.getElementById('estado').innerText = 'OK - Sincronizado con Google (' + catalogo.length + ' articulos y ' + sel.options.length + ' clientes)';
-  }).catch(function() {
-    document.getElementById('estado').innerText = 'OK - Modo local activo (' + catalogo.length + ' articulos)';
+  }).catch(function(err) {
+    document.getElementById('estado').innerText = 'Aviso Google: ' + err.message;
   });
 }
 
@@ -188,55 +185,41 @@ function guardarCfg() {
 function toggleCam() {
   var video = document.getElementById('videoPreview');
   var btn = document.getElementById('btnCam');
-
-  if (camaraAbierta) {
-    if (codeReader) codeReader.reset();
+  if (streamActivo) {
+    if (timerScan) clearInterval(timerScan);
+    streamActivo.getTracks().forEach(function(t) { t.stop(); });
+    streamActivo = null;
     video.style.display = 'none';
     btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
     return;
   }
-
-  if (typeof ZXing === 'undefined') {
-    alert('El lector de camara aun esta cargando, intenta de nuevo en 2 segundos.');
-    return;
-  }
-
-  btn.innerText = 'Iniciando lector...';
-  video.style.display = 'block';
-  camaraAbierta = true;
-  codeReader = new ZXing.BrowserMultiFormatReader();
-
-  codeReader.decodeFromConstraints(
-    { video: { facingMode: 'environment' } },
-    'videoPreview',
-    function(result, err) {
-      if (result) {
-        var textoLeido = result.getText();
-        document.getElementById('codigo').value = textoLeido;
-        if (navigator.vibrate) navigator.vibrate(150);
-        agregar();
-        // Pausa breve de 1.5s para no leer el mismo producto dos veces seguidas
-        codeReader.reset();
-        video.style.display = 'none';
-        btn.innerText = 'Abrir Camara (Leido OK)';
-        camaraAbierta = false;
-      }
-    }
-  ).then(function() {
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function(stream) {
+    streamActivo = stream;
+    video.srcObject = stream;
+    video.style.display = 'block';
     btn.innerText = 'Cerrar Camara';
-  }).catch(function(err) {
-    video.style.display = 'none';
-    btn.innerText = 'Abrir Camara';
-    camaraAbierta = false;
-    alert('Error al abrir camara: ' + err);
-  });
+    if ('BarcodeDetector' in window) {
+      var detector = new BarcodeDetector();
+      timerScan = setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          detector.detect(video).then(function(codes) {
+            if (Boolean(codes.length)) {
+              var codLeido = '';
+              codes.forEach(function(x) { if (!codLeido) codLeido = x.rawValue; });
+              document.getElementById('codigo').value = codLeido;
+              agregar();
+            }
+          }).catch(function() {});
+        }
+      }, 700);
+    }
+  }).catch(function(err) { alert('Error camara: ' + err.message); });
 }
 
 function agregar() {
   var cod = document.getElementById('codigo').value.trim();
   var cant = parseInt(document.getElementById('cantidad').value, 10) || 1;
-  if (!cod) { alert('Escribe o escanea un codigo primero'); return; }
+  if (!cod) { alert('Escribe o escanea un codigo'); return; }
   var enc = null, tipo = 'UNID', pr = 0;
 
   catalogo.forEach(function(p) {
