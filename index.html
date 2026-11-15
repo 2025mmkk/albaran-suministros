@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Rápido v12</title>
+  <title>Albarán Rápido v13</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
     .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     h2, h3 { margin: 0 0 10px 0; color: #0f62fe; font-size: 1.05rem; }
     label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.85rem; }
-    select, input { width: 100%; padding: 11px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+    select, input { width: 100%; padding: 11px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; background: #fff; }
     button { width: 100%; padding: 13px; background: #0f62fe; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
     button.success { background: #198038; }
     button.secondary { background: #393939; }
@@ -23,11 +23,13 @@
     details { background: #e5f6ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #0f62fe; }
     summary { font-weight: bold; cursor: pointer; color: #0f62fe; }
     .aviso { font-size: 0.85rem; color: #a2191f; background: #fff1f1; padding: 8px; border-radius: 6px; margin-bottom: 8px; display: none; }
+    .fila-doble { display: flex; gap: 10px; }
+    .fila-doble > div { flex: 1; }
   </style>
 </head>
 <body class="notranslate">
 
-  <div id="msgDb" class="status">⚡ v12 Ultraligera - Lista al instante</div>
+  <div id="msgDb" class="status">⚡ v13 Lista - 22 Clientes cargados al instante</div>
 
   <!-- CONFIGURACIÓN DESPLEGABLE -->
   <details id="panelConfig">
@@ -41,11 +43,23 @@
     </div>
   </details>
 
-  <!-- 1. CLIENTE -->
+  <!-- 1. CLIENTE Y FECHA -->
   <div class="card">
-    <h2>1. Selección de Cliente</h2>
+    <h2>1. Datos del Albarán</h2>
+    
+    <label for="selCli">Restaurante:</label>
     <select id="selCli"></select>
-    <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
+
+    <div class="fila-doble">
+      <div>
+        <label for="ctaCli">Cuenta Cliente:</label>
+        <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta">
+      </div>
+      <div>
+        <label for="fechaAlb">📅 Fecha Albarán:</label>
+        <input type="date" id="fechaAlb">
+      </div>
+    </div>
   </div>
 
   <!-- 2. ESCÁNER NATIVO -->
@@ -55,7 +69,7 @@
     <div id="camMsg" class="aviso"></div>
     <video id="videoPreview" playsinline autoplay muted></video>
 
-    <label>Código de Barras (o selecciona artículo):</label>
+    <label>Código de Barras:</label>
     <input type="text" id="cod" placeholder="Escanea o escribe el código...">
     
     <div style="display:flex; gap:8px;">
@@ -102,7 +116,6 @@
       { n: "LA MAR DE FRIA ECHEVERRIA", c: "43007164" }
     ];
 
-    // Catálogo base con los precios de tu Hoja 1 (puedes añadir los EAN aquí mismo o cargarlos)
     var arts = [
       { nom: "ABRILLANTADOR MQ 5LT", u: "", c: "", pu: 4.73, pc: 0 },
       { nom: "ACEITE OLIVA EV 5LT", u: "", c: "", pu: 19.75, pc: 0 },
@@ -117,7 +130,14 @@
     var streamActivo = null;
     var intervaloScan = null;
 
-    // Llenar selector de clientes al instante
+    // 1. Fijar fecha actual automáticamente (modificable por el usuario)
+    var hoy = new Date();
+    var yyyy = hoy.getFullYear();
+    var mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    var dd = String(hoy.getDate()).padStart(2, '0');
+    document.getElementById('fechaAlb').value = yyyy + '-' + mm + '-' + dd;
+
+    // 2. Llenar desplegable de clientes al instante
     var sel = document.getElementById('selCli');
     clientes.forEach(function(item) {
       var o = document.createElement('option');
@@ -131,22 +151,22 @@
       document.getElementById('ctaCli').value = this.value;
     });
 
-    // Configuración
+    // 3. Configuración guardada
     document.getElementById('btnSave').addEventListener('click', function() {
       var w = document.getElementById('wa').value.replace(/\D/g, '');
       var e = document.getElementById('em').value.trim();
-      localStorage.setItem('cfg_v12', JSON.stringify({ w: w, e: e }));
+      localStorage.setItem('cfg_v13', JSON.stringify({ w: w, e: e }));
       document.getElementById('panelConfig').removeAttribute('open');
       alert('✅ Destino guardado.');
     });
 
     try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v12') || '{}');
+      var saved = JSON.parse(localStorage.getItem('cfg_v13') || '{}');
       if (saved.w) document.getElementById('wa').value = saved.w;
       if (saved.e) document.getElementById('em').value = saved.e;
     } catch (e) {}
 
-    // CÁMARA NATIVA DEL NAVEGADOR (SIN LIBRERÍAS EXTERNAS)
+    // 4. Cámara nativa
     document.getElementById('btnCam').addEventListener('click', function() {
       var video = document.getElementById('videoPreview');
       var btn = this;
@@ -160,7 +180,7 @@
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         msg.style.display = 'block';
-        msg.innerText = '⚠️ Tu navegador bloqueó la cámara. Asegúrate de abrir el enlace en Chrome o Safari (no dentro de WhatsApp).';
+        msg.innerText = '⚠️ Abre este enlace en Google Chrome o Safari (no dentro de WhatsApp) para usar la cámara.';
         return;
       }
 
@@ -172,7 +192,6 @@
           video.style.display = 'block';
           btn.innerText = '⏹️ Cerrar Cámara';
 
-          // Lector nativo de códigos de barras de Android / Chrome
           if ('BarcodeDetector' in window) {
             var detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a'] });
             intervaloScan = setInterval(function() {
@@ -189,13 +208,13 @@
             }, 600);
           } else {
             msg.style.display = 'block';
-            msg.innerText = '📷 Cámara abierta. Si este navegador no lee automático, escribe el código abajo.';
+            msg.innerText = '📷 Cámara abierta. Si tu navegador no lee automático, escribe el código abajo.';
           }
         })
         .catch(function(err) {
           btn.innerText = '📷 Abrir Cámara';
           msg.style.display = 'block';
-          msg.innerText = '❌ Permiso denegado o cámara ocupada (' + err.name + ').';
+          msg.innerText = '❌ Permiso de cámara denegado o no disponible (' + err.name + ').';
         });
     });
 
@@ -206,17 +225,3 @@
         streamActivo.getTracks().forEach(function(track) { track.stop(); });
         streamActivo = null;
       }
-      video.style.display = 'none';
-      document.getElementById('btnCam').innerText = '📷 Abrir Cámara';
-    }
-
-    document.getElementById('btnAdd').addEventListener('click', agregarArticulo);
-
-    function agregarArticulo() {
-      var c = document.getElementById('cod').value.trim();
-      var q = parseInt(document.getElementById('cant').value, 10) || 1;
-      if (!c) return;
-
-      var enc = null, tipo = 'UNID', pr = 0;
-      arts.forEach(function(item) {
-        if (item.u === c && !enc) { enc = item; pr = enc.pu; }
