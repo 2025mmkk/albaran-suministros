@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Suministros v11</title>
-  <script src="https://jsdelivr.net"></script>
-  <script src="https://jsdelivr.net"></script>
+  <title>Albarán Rápido v12</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
     .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -17,19 +15,19 @@
     button.success { background: #198038; }
     button.secondary { background: #393939; }
     button.danger { background: #da1e28; width: auto; padding: 5px 10px; font-size: 0.8rem; }
-    #reader { width: 100%; min-height: 250px; background: #000; border-radius: 8px; margin-bottom: 10px; display: none; overflow: hidden; }
+    video { width: 100%; max-height: 260px; background: #000; border-radius: 8px; margin-bottom: 10px; display: none; object-fit: cover; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { border-bottom: 1px solid #ddd; padding: 7px 4px; text-align: left; }
     .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
     .status { padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; font-weight: bold; }
     details { background: #e5f6ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #0f62fe; }
     summary { font-weight: bold; cursor: pointer; color: #0f62fe; }
-    .cam-msg { font-size: 0.85rem; color: #a2191f; margin-bottom: 8px; display: none; background: #fff1f1; padding: 8px; border-radius: 6px; }
+    .aviso { font-size: 0.85rem; color: #a2191f; background: #fff1f1; padding: 8px; border-radius: 6px; margin-bottom: 8px; display: none; }
   </style>
 </head>
 <body class="notranslate">
 
-  <div id="msgDb" class="status">✅ Sistema listo (v11) - Cargando catálogo...</div>
+  <div id="msgDb" class="status">⚡ v12 Ultraligera - Lista al instante</div>
 
   <!-- CONFIGURACIÓN DESPLEGABLE -->
   <details id="panelConfig">
@@ -50,18 +48,14 @@
     <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
   </div>
 
-  <!-- 2. ESCÁNER Y ARTÍCULOS -->
+  <!-- 2. ESCÁNER NATIVO -->
   <div class="card">
     <h2>2. Escaneo de Suministros</h2>
-    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara en Vivo</button>
-    <div id="camError" class="cam-msg"></div>
-    <div id="reader"></div>
+    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
+    <div id="camMsg" class="aviso"></div>
+    <video id="videoPreview" playsinline autoplay muted></video>
 
-    <!-- Respaldo por foto si el visor en vivo falla -->
-    <input type="file" id="fotoBarcode" accept="image/*" capture="environment" style="display:none;">
-    <button type="button" class="secondary" id="btnFoto" style="background:#525252; font-size:0.9rem; padding:10px;">📸 Escanear haciendo una foto</button>
-
-    <label>Código de Barras (EAN Unidad o Caja):</label>
+    <label>Código de Barras (o selecciona artículo):</label>
     <input type="text" id="cod" placeholder="Escanea o escribe el código...">
     
     <div style="display:flex; gap:8px;">
@@ -83,7 +77,7 @@
   </div>
 
   <script>
-    var clientesDefault = [
+    var clientes = [
       { n: "LA MAR DE FRIA ALHAURIN", c: "43003904" },
       { n: "LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", c: "43003904" },
       { n: "LA SUBASTA BENALMADENA", c: "43004696" },
@@ -108,108 +102,121 @@
       { n: "LA MAR DE FRIA ECHEVERRIA", c: "43007164" }
     ];
 
-    var arts = [];
+    // Catálogo base con los precios de tu Hoja 1 (puedes añadir los EAN aquí mismo o cargarlos)
+    var arts = [
+      { nom: "ABRILLANTADOR MQ 5LT", u: "", c: "", pu: 4.73, pc: 0 },
+      { nom: "ACEITE OLIVA EV 5LT", u: "", c: "", pu: 19.75, pc: 0 },
+      { nom: "BAYETA 30X40 AMARILLA 10U", u: "", c: "", pu: 3.20, pc: 0 },
+      { nom: "BAYETA 30X40 AZUL 10U", u: "", c: "", pu: 3.20, pc: 0 },
+      { nom: "BAYETA 30X40 ROJA 10U", u: "", c: "", pu: 3.20, pc: 0 },
+      { nom: "BAYETA 30X40 VERDE 10U", u: "", c: "", pu: 3.20, pc: 0 },
+      { nom: "BAYETA PUNTO AZ 3K", u: "", c: "", pu: 9.91, pc: 0 }
+    ];
+
     var lineas = [];
-    var qr = null;
-    var camOn = false;
+    var streamActivo = null;
+    var intervaloScan = null;
 
-    function cargarClientesBase(lista) {
-      var sel = document.getElementById('selCli');
-      sel.innerHTML = '';
-      lista.forEach(function(item) {
-        var o = document.createElement('option');
-        o.text = item.n;
-        o.value = item.c;
-        sel.add(o);
-      });
-      if (sel.options.length > 0) {
-        document.getElementById('ctaCli').value = sel.value;
-      }
-    }
+    // Llenar selector de clientes al instante
+    var sel = document.getElementById('selCli');
+    clientes.forEach(function(item) {
+      var o = document.createElement('option');
+      o.text = item.n;
+      o.value = item.c;
+      sel.add(o);
+    });
+    document.getElementById('ctaCli').value = sel.value;
 
-    cargarClientesBase(clientesDefault);
-
-    document.getElementById('selCli').addEventListener('change', function() {
+    sel.addEventListener('change', function() {
       document.getElementById('ctaCli').value = this.value;
     });
 
+    // Configuración
     document.getElementById('btnSave').addEventListener('click', function() {
       var w = document.getElementById('wa').value.replace(/\D/g, '');
       var e = document.getElementById('em').value.trim();
-      localStorage.setItem('cfg_v11', JSON.stringify({ w: w, e: e }));
+      localStorage.setItem('cfg_v12', JSON.stringify({ w: w, e: e }));
       document.getElementById('panelConfig').removeAttribute('open');
       alert('✅ Destino guardado.');
     });
 
     try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v11') || '{}');
+      var saved = JSON.parse(localStorage.getItem('cfg_v12') || '{}');
       if (saved.w) document.getElementById('wa').value = saved.w;
       if (saved.e) document.getElementById('em').value = saved.e;
-      if (!saved.w && !saved.e) document.getElementById('panelConfig').setAttribute('open', '');
     } catch (e) {}
 
-    // Cargar datos.xlsx
-    var baseUrl = window.location.href.split('?').at(0);
-    if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
-    else if (!baseUrl.endsWith('/')) baseUrl += '/';
-
-    fetch(baseUrl + 'datos.xlsx?t=' + Date.now())
-      .then(function(r) { return r.ok ? r.arrayBuffer() : Promise.reject(); })
-      .then(function(buf) {
-        var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-        var hoja = Reflect.get(wb.Sheets, wb.SheetNames.at(0));
-        var rows = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
-        var nuevosArts = [];
-        var nuevosCli = [];
-        var modo = '';
-
-        rows.forEach(function(r) {
-          var bCol = String(r.B || '').trim();
-          var cCol = String(r.C || '').trim();
-          if (bCol === 'ARTICULO') { modo = 'A'; return; }
-          if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; return; }
-          if (modo === 'A' && bCol) {
-            nuevosArts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
-          } else if (modo === 'C' && bCol) {
-            nuevosCli.push({ n: bCol, c: cCol });
-          }
-        });
-
-        if (nuevosArts.length > 0) arts = nuevosArts;
-        if (nuevosCli.length > 0) cargarClientesBase(nuevosCli);
-        document.getElementById('msgDb').innerHTML = '✅ Sincronizado con datos.xlsx (' + arts.length + ' artículos)';
-      })
-      .catch(function() {
-        document.getElementById('msgDb').innerHTML = '✅ Catálogo base cargado (22 clientes)';
-      });
-
-    // CÁMARA EN VIVO MEJORADA
+    // CÁMARA NATIVA DEL NAVEGADOR (SIN LIBRERÍAS EXTERNAS)
     document.getElementById('btnCam').addEventListener('click', function() {
-      var d = document.getElementById('reader');
-      var b = this;
-      var errBox = document.getElementById('camError');
-      errBox.style.display = 'none';
+      var video = document.getElementById('videoPreview');
+      var btn = this;
+      var msg = document.getElementById('camMsg');
+      msg.style.display = 'none';
 
-      if (typeof Html5Qrcode === 'undefined') {
-        errBox.style.display = 'block';
-        errBox.innerText = '⚠️ El lector en vivo no cargó por conexión. Usa el botón de abajo "📸 Escanear haciendo una foto".';
+      if (streamActivo) {
+        detenerCamara();
         return;
       }
 
-      if (!camOn) {
-        d.style.display = 'block';
-        b.innerText = '⏳ Iniciando cámara...';
-        qr = new Html5Qrcode('reader');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        msg.style.display = 'block';
+        msg.innerText = '⚠️ Tu navegador bloqueó la cámara. Asegúrate de abrir el enlace en Chrome o Safari (no dentro de WhatsApp).';
+        return;
+      }
 
-        Html5Qrcode.getCameras().then(function(devices) {
-          if (!devices || devices.length === 0) {
-            throw new Error('No se detectó ninguna cámara en este dispositivo.');
+      btn.innerText = '⏳ Abriendo cámara...';
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(function(stream) {
+          streamActivo = stream;
+          video.srcObject = stream;
+          video.style.display = 'block';
+          btn.innerText = '⏹️ Cerrar Cámara';
+
+          // Lector nativo de códigos de barras de Android / Chrome
+          if ('BarcodeDetector' in window) {
+            var detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a'] });
+            intervaloScan = setInterval(function() {
+              if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                detector.detect(video).then(function(barcodes) {
+                  if (barcodes.length > 0) {
+                    var codigoLeido = barcodes.at(0).rawValue;
+                    document.getElementById('cod').value = codigoLeido;
+                    if (navigator.vibrate) navigator.vibrate(150);
+                    agregarArticulo();
+                  }
+                }).catch(function() {});
+              }
+            }, 600);
+          } else {
+            msg.style.display = 'block';
+            msg.innerText = '📷 Cámara abierta. Si este navegador no lee automático, escribe el código abajo.';
           }
-          // Elegir cámara trasera si existe, si no la primera disponible
-          var camId = devices.at(0).id;
-          devices.forEach(function(dev) {
-            if (dev.label && (dev.label.toLowerCase().includes('back') || dev.label.toLowerCase().includes('trasera') || dev.label.toLowerCase().includes('environment'))) {
-              camId = dev.id;
-            }
-          });
+        })
+        .catch(function(err) {
+          btn.innerText = '📷 Abrir Cámara';
+          msg.style.display = 'block';
+          msg.innerText = '❌ Permiso denegado o cámara ocupada (' + err.name + ').';
+        });
+    });
 
+    function detenerCamara() {
+      var video = document.getElementById('videoPreview');
+      if (intervaloScan) clearInterval(intervaloScan);
+      if (streamActivo) {
+        streamActivo.getTracks().forEach(function(track) { track.stop(); });
+        streamActivo = null;
+      }
+      video.style.display = 'none';
+      document.getElementById('btnCam').innerText = '📷 Abrir Cámara';
+    }
+
+    document.getElementById('btnAdd').addEventListener('click', agregarArticulo);
+
+    function agregarArticulo() {
+      var c = document.getElementById('cod').value.trim();
+      var q = parseInt(document.getElementById('cant').value, 10) || 1;
+      if (!c) return;
+
+      var enc = null, tipo = 'UNID', pr = 0;
+      arts.forEach(function(item) {
+        if (item.u === c && !enc) { enc = item; pr = enc.pu; }
