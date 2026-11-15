@@ -217,7 +217,6 @@ function toggleCam() {
         document.getElementById('codigo').value = textoLeido;
         if (navigator.vibrate) navigator.vibrate(150);
         agregar();
-        // Pausa breve de 1.5s para no leer el mismo producto dos veces seguidas
         codeReader.reset();
         video.style.display = 'none';
         btn.innerText = 'Abrir Camara (Leido OK)';
@@ -251,10 +250,32 @@ function agregar() {
     }
   });
 
-  var nombre = enc ? (enc.nom + ' (' + tipo + ')') : ('Articulo EAN: ' + cod);
-  lineas.push({ cod: cod, nom: nombre, cant: cant, pr: pr, sub: cant * pr });
+  var yaExiste = null;
+  lineas.forEach(function(l) {
+    if (l.cod === cod) yaExiste = l;
+  });
+
+  if (yaExiste) {
+    yaExiste.cant += cant;
+    yaExiste.sub = yaExiste.cant * yaExiste.pr;
+  } else {
+    var nombre = enc ? (enc.nom + ' (' + tipo + ')') : ('Articulo EAN: ' + cod);
+    lineas.push({ cod: cod, nom: nombre, cant: cant, pr: pr, sub: cant * pr });
+  }
+
   document.getElementById('codigo').value = '';
   document.getElementById('cantidad').value = 1;
+  dibujar();
+}
+
+function cambiarCant(i, delta) {
+  var item = lineas.at(i);
+  item.cant += delta;
+  if (item.cant === 0) {
+    lineas.splice(i, 1);
+  } else {
+    item.sub = item.cant * item.pr;
+  }
   dibujar();
 }
 
@@ -266,7 +287,16 @@ function dibujar() {
   var total = 0;
   lineas.forEach(function(l, i) {
     total += l.sub;
-    tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.cant + '</td><td>' + l.sub.toFixed(2) + '</td><td><button class="danger" onclick="borrarLinea(' + i + ')">X</button></td></tr>';
+    tb.innerHTML += '<tr>' +
+      '<td>' + l.nom + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button type="button" style="width:28px;padding:4px;margin:0;background:#525252;" onclick="cambiarCant(' + i + ',-1)">-</button> ' +
+        '<b>' + l.cant + '</b> ' +
+        '<button type="button" style="width:28px;padding:4px;margin:0;background:#0f62fe;" onclick="cambiarCant(' + i + ',1)">+</button>' +
+      '</td>' +
+      '<td>' + l.sub.toFixed(2) + '</td>' +
+      '<td><button class="danger" onclick="borrarLinea(' + i + ')">X</button></td>' +
+    '</tr>';
   });
   document.getElementById('total').innerText = total.toFixed(2);
 }
@@ -295,3 +325,4 @@ function enviar() {
 </script>
 </body>
 </html>
+
