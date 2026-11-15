@@ -13,24 +13,24 @@
     h2, h3 { margin-top: 0; font-size: 1.1rem; color: var(--primary); }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
     select, input[type="text"], input[type="email"], input[type="tel"], input[type="number"] {
-      width: 100%; padding: 10px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem;
+      width: 100%; padding: 12px; margin-bottom: 14px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; background: #fff;
     }
     button {
-      width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px;
-      font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 8px;
+      width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 6px;
+      font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px;
     }
     button.secondary { background: #393939; }
     button.success { background: #198038; }
     button.danger { background: #da1e28; padding: 6px 10px; width: auto; font-size: 0.85rem; }
-    button.small-btn { width: auto; padding: 6px 12px; font-size: 0.8rem; background: #525252; float: right; }
+    button.small-btn { width: auto; padding: 6px 12px; font-size: 0.8rem; background: #525252; float: right; margin: 0; }
     #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 10px; display: none; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { border-bottom: 1px solid #ddd; padding: 8px 4px; text-align: left; }
     th { background: #e0e0e0; }
     .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
     .badge { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
-    .config-banner { background: #e5f6ff; border-left: 4px solid var(--primary); padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85rem; overflow: hidden; }
-    .status-bar { font-size: 0.85rem; padding: 8px; border-radius: 6px; margin-bottom: 12px; background: #defbe6; color: #0e6027; border: 1px solid #a7f0ba; }
+    .config-banner { background: #e5f6ff; border-left: 4px solid var(--primary); padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85rem; overflow: hidden; line-height: 28px; }
+    .status-bar { font-size: 0.85rem; padding: 10px; border-radius: 6px; margin-bottom: 12px; background: #defbe6; color: #0e6027; border: 1px solid #a7f0ba; }
     .status-error { background: #fff1f1; color: #a2191f; border: 1px solid #ffb3b8; }
   </style>
 </head>
@@ -38,17 +38,17 @@
 
   <!-- BARRA SUPERIOR DE CONFIGURACIÓN GUARDADA -->
   <div id="configBanner" class="config-banner" style="display:none;">
-    <button type="button" class="small-btn" onclick="editarConfiguracion()">⚙️ Cambiar destino</button>
-    <div id="resumenConfig"></div>
+    <button type="button" id="btnEditarConfig" class="small-btn">⚙️ Cambiar destino</button>
+    <span id="resumenConfig"></span>
   </div>
 
   <!-- 0. CONFIGURACIÓN INICIAL -->
   <div class="card" id="setupSection">
     <h2>⚙️ Configuración de Envío Inicial</h2>
-    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Define a dónde se enviarán los albaranes terminados. Esto se guardará en tu teléfono.</p>
+    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Define a dónde se enviarán los albaranes terminados. Se guardará en este teléfono.</p>
     
     <label for="metodoEnvio">Método de envío preferido:</label>
-    <select id="metodoEnvio" onchange="actualizarCamposSetup()">
+    <select id="metodoEnvio">
       <option value="whatsapp">WhatsApp</option>
       <option value="email">Correo Electrónico</option>
       <option value="ambos">Ambos (WhatsApp y Correo)</option>
@@ -64,14 +64,14 @@
       <input type="email" id="destinoEmail" placeholder="almacen@empresa.com" />
     </div>
 
-    <button type="button" class="success" onclick="guardarConfiguracion()">💾 Guardar y Continuar</button>
+    <button type="button" id="btnGuardarConfig" class="success">💾 Guardar y Continuar</button>
   </div>
 
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appPrincipal" style="display:none;">
     
     <!-- ESTADO DE LA BASE DE DATOS AUTOMÁTICA -->
-    <div id="dbStatus" class="status-bar">⏳ Conectando con la base de datos en la nube...</div>
+    <div id="dbStatus" class="status-bar">⏳ Cargando base de datos desde GitHub...</div>
 
     <!-- 1. DATOS DEL CLIENTE -->
     <div class="card" id="clienteSection" style="display:none;">
@@ -127,92 +127,89 @@
   </div>
 
   <script>
-    let baseArticulos = [];
-    let baseClientes = [];
-    let lineasAlbaran = [];
-    let html5QrCode = null;
-    let camaraActiva = false;
+    var baseArticulos = [];
+    var baseClientes = [];
+    var lineasAlbaran = [];
+    var html5QrCode = null;
+    var camaraActiva = false;
 
-    // --- CARGA AUTOMÁTICA AL INICIAR ---
-    window.addEventListener('DOMContentLoaded', () => {
-      const configGuardada = localStorage.getItem('albaran_config');
-      if (configGuardada) {
-        aplicarConfiguracionUI(JSON.parse(configGuardada));
-      }
-      cargarExcelDesdeGitHub();
-    });
-
-    async function cargarExcelDesdeGitHub() {
-      const statusDiv = document.getElementById('dbStatus');
-      try {
-        // Añadimos un parámetro de tiempo (?v=...) para evitar que el navegador use una versión vieja en caché
-        const respuesta = await fetch('datos.xlsx?v=' + new Date().getTime());
-        if (!respuesta.ok) throw new Error('No se encontró el archivo datos.xlsx en el servidor.');
-
-        const arrayBuffer = await respuesta.arrayBuffer();
-        const data = new Uint8Array(arrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
-        const filas = XLSX.utils.sheet_to_json(primeraHoja, { header: 1 });
-
-        procesarHojaMaestra(filas);
-      } catch (error) {
-        statusDiv.className = 'status-bar status-error';
-        statusDiv.innerHTML = `❌ <b>Error al cargar datos.xlsx:</b> Asegúrate de haber subido el archivo "datos.xlsx" a tu repositorio de GitHub.`;
-      }
-    }
-
-    function procesarHojaMaestra(filas) {
-      baseArticulos = [];
-      baseClientes = [];
-      let modo = '';
-
-      filas.forEach(fila => {
-        const colB = (fila[1] || '').toString().trim();
-        const colC = (fila[2] || '').toString().trim();
-
-        if (colB === 'ARTICULO') { modo = 'ARTICULOS'; return; }
-        if (colB === 'NOMBRE DE RESTAURANTE') { modo = 'CLIENTES'; return; }
-
-        if (modo === 'ARTICULOS' && colB !== '') {
-          baseArticulos.push({
-            articulo: colB,
-            eanUnidad: colC,
-            eanCaja: (fila[3] || '').toString().trim(),
-            equivalencia: parseFloat(fila[4]) || 1,
-            precioUnidad: parseFloat(fila[5]) || 0,
-            precioCaja: parseFloat(fila[6]) || 0
-          });
-        } else if (modo === 'CLIENTES' && colB !== '') {
-          baseClientes.push({ nombre: colB, cuenta: colC });
-        }
-      });
-
-      const select = document.getElementById('selectCliente');
-      select.innerHTML = '';
-      baseClientes.forEach((c, idx) => {
-        const opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = c.nombre;
-        select.appendChild(opt);
-      });
-
-      if (baseClientes.length > 0) {
-        document.getElementById('cuentaCliente').value = baseClientes[0].cuenta;
-      }
-
-      document.getElementById('dbStatus').innerHTML = `✅ Catálogo actualizado: <b>${baseArticulos.length}</b> artículos y <b>${baseClientes.length}</b> clientes listos.`;
-      document.getElementById('clienteSection').style.display = 'block';
-      document.getElementById('escanerSection').style.display = 'block';
-      document.getElementById('albaranSection').style.display = 'block';
-    }
-
-    // --- GESTIÓN DE CONFIGURACIÓN INICIAL ---
+    // Mostrar/ocultar campos según selección
     function actualizarCamposSetup() {
-      const metodo = document.getElementById('metodoEnvio').value;
+      var metodo = document.getElementById('metodoEnvio').value;
       document.getElementById('grupoWhatsapp').style.display = (metodo === 'whatsapp' || metodo === 'ambos') ? 'block' : 'none';
       document.getElementById('grupoEmail').style.display = (metodo === 'email' || metodo === 'ambos') ? 'block' : 'none';
     }
 
-    function guardarConfiguracion() {
-      const metodo = document.getElementById('metodoEnvio').value;
+    document.getElementById('metodoEnvio').addEventListener('change', actualizarCamposSetup);
+
+    // Guardar configuración y pasar a la app
+    document.getElementById('btnGuardarConfig').addEventListener('click', function() {
+      var metodo = document.getElementById('metodoEnvio').value;
+      var whatsapp = document.getElementById('destinoWhatsapp').value.replace(/\D/g, '');
+      var email = document.getElementById('destinoEmail').value.trim();
+
+      if ((metodo === 'whatsapp' || metodo === 'ambos') && !whatsapp) {
+        alert("Por favor, introduce un número de WhatsApp con prefijo (ej: 34600112233).");
+        return;
+      }
+      if ((metodo === 'email' || metodo === 'ambos') && !email) {
+        alert("Por favor, introduce un correo electrónico válido.");
+        return;
+      }
+
+      var config = { metodo: metodo, whatsapp: whatsapp, email: email };
+      try {
+        localStorage.setItem('albaran_config', JSON.stringify(config));
+      } catch (e) {
+        console.warn("No se pudo guardar en localStorage:", e);
+      }
+      aplicarConfiguracionUI(config);
+    });
+
+    function aplicarConfiguracionUI(config) {
+      document.getElementById('setupSection').style.display = 'none';
+      document.getElementById('appPrincipal').style.display = 'block';
+      document.getElementById('configBanner').style.display = 'block';
+
+      var texto = '<b>Envío:</b> ';
+      if (config.metodo === 'whatsapp') texto += 'WhatsApp (+' + config.whatsapp + ')';
+      if (config.metodo === 'email') texto += 'Email (' + config.email + ')';
+      if (config.metodo === 'ambos') texto += 'WhatsApp y Email';
+      document.getElementById('resumenConfig').innerHTML = texto;
+    }
+
+    document.getElementById('btnEditarConfig').addEventListener('click', function() {
+      document.getElementById('setupSection').style.display = 'block';
+      document.getElementById('appPrincipal').style.display = 'none';
+      document.getElementById('configBanner').style.display = 'none';
+      actualizarCamposSetup();
+    });
+
+    // Iniciar app y cargar datos
+    window.addEventListener('load', function() {
+      try {
+        var guardada = localStorage.getItem('albaran_config');
+        if (guardada) {
+          aplicarConfiguracionUI(JSON.parse(guardada));
+        }
+      } catch (e) {}
+      cargarExcelDesdeGitHub();
+    });
+
+    function cargarExcelDesdeGitHub() {
+      var statusDiv = document.getElementById('dbStatus');
+      fetch('datos.xlsx?v=' + new Date().getTime())
+        .then(function(respuesta) {
+          if (!respuesta.ok) throw new Error('No se encontró datos.xlsx');
+          return respuesta.arrayBuffer();
+        })
+        .then(function(arrayBuffer) {
+          var data = new Uint8Array(arrayBuffer);
+          var workbook = XLSX.read(data, { type: 'array' });
+          var primeraHoja = workbook.Sheets[workbook.SheetNames[0]];
+          var filas = XLSX.utils.sheet_to_json(primeraHoja, { header: 1 });
+          procesarHojaMaestra(filas);
+        })
+        .catch(function(error) {
+          statusDiv.className = 'status-bar status-error';
+          statusDiv.innerHTML = '❌ <b>Error:</b> No se encontró <b>datos.xlsx</b> en GitHub. Asegúrate de subirlo con ese nombre exacto.';
