@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Rápido v13</title>
+  <title>Albarán Suministros v14</title>
+  <script src="https://jsdelivr.net"></script>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
     .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -29,7 +30,7 @@
 </head>
 <body class="notranslate">
 
-  <div id="msgDb" class="status">⚡ v13 Lista - 22 Clientes cargados al instante</div>
+  <div id="msgDb" class="status">⏳ Iniciando v14...</div>
 
   <!-- CONFIGURACIÓN DESPLEGABLE -->
   <details id="panelConfig">
@@ -39,16 +40,15 @@
       <input type="tel" id="wa" placeholder="34600112233">
       <label>📧 Correo destino:</label>
       <input type="email" id="em" placeholder="almacen@empresa.com">
-      <button type="button" class="success" id="btnSave">💾 Guardar Destino</button>
+      <button type="button" class="success" onclick="guardarDestino()">💾 Guardar Destino</button>
     </div>
   </details>
 
   <!-- 1. CLIENTE Y FECHA -->
   <div class="card">
     <h2>1. Datos del Albarán</h2>
-    
     <label for="selCli">Restaurante:</label>
-    <select id="selCli"></select>
+    <select id="selCli" onchange="document.getElementById('ctaCli').value = this.value"></select>
 
     <div class="fila-doble">
       <div>
@@ -65,16 +65,16 @@
   <!-- 2. ESCÁNER NATIVO -->
   <div class="card">
     <h2>2. Escaneo de Suministros</h2>
-    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
+    <button type="button" class="secondary" id="btnCam" onclick="alternarCamara()">📷 Abrir Cámara</button>
     <div id="camMsg" class="aviso"></div>
     <video id="videoPreview" playsinline autoplay muted></video>
 
-    <label>Código de Barras:</label>
+    <label>Código de Barras (EAN Unidad o Caja):</label>
     <input type="text" id="cod" placeholder="Escanea o escribe el código...">
     
     <div style="display:flex; gap:8px;">
       <input type="number" id="cant" value="1" min="1" style="flex:1;">
-      <button type="button" id="btnAdd" style="flex:2;">➕ Añadir</button>
+      <button type="button" onclick="agregarArticulo()" style="flex:2;">➕ Añadir</button>
     </div>
   </div>
 
@@ -87,89 +87,110 @@
     </table>
     <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
     <br>
-    <button type="button" class="success" id="btnEnviar">🚀 Finalizar, Descargar y Enviar</button>
+    <button type="button" class="success" onclick="finalizarAlbaran()">🚀 Finalizar, Descargar y Enviar</button>
   </div>
 
   <script>
-    var clientes = [
-      { n: "LA MAR DE FRIA ALHAURIN", c: "43003904" },
-      { n: "LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", c: "43003904" },
-      { n: "LA SUBASTA BENALMADENA", c: "43004696" },
-      { n: "OASIS BEACH CLUB", c: "43004678" },
-      { n: "CAMPOSOL", c: "43001140" },
-      { n: "ENTREMAREA FUENGIROLA", c: "43002274" },
-      { n: "CHUPYTIRA TORREMOLINOS", c: "43006301" },
-      { n: "LA MAR DE FRIA CERVECERIA SAN PEDRO", c: "43006530" },
-      { n: "LA MAR DE FRIA EL PALO", c: "43008912" },
-      { n: "CHUPYTIRA FUENGIROLA", c: "43007161" },
-      { n: "LA MIJITA BAR", c: "43000003" },
-      { n: "CHUPYTIRA CENTRO", c: "43018499" },
-      { n: "LA CEVICHERIA CENTRO", c: "43000357" },
-      { n: "LA MAR DE FRIA LA MERCED", c: "43000357" },
-      { n: "TAQUERIA MEX CENTRO", c: "43000357" },
-      { n: "TAQUERIA MEX TEATINOS", c: "43000357" },
-      { n: "LA MAR DE FRIA TEATINOS", c: "" },
-      { n: "LA MAR DE FRIA BENALMADENA (PLAYA SANTA ANA) / BRAVO", c: "43003912" },
-      { n: "LA MAR DE FRIA PACIFICO", c: "43003912" },
-      { n: "PLAYA PITAYA BEACH CLUB", c: "43009284" },
-      { n: "LA MAR DE FRIA ESTEPONA / TAQUERIA ESTEPONA", c: "43007164" },
-      { n: "LA MAR DE FRIA ECHEVERRIA", c: "43007164" }
-    ];
-
-    var arts = [
-      { nom: "ABRILLANTADOR MQ 5LT", u: "", c: "", pu: 4.73, pc: 0 },
-      { nom: "ACEITE OLIVA EV 5LT", u: "", c: "", pu: 19.75, pc: 0 },
-      { nom: "BAYETA 30X40 AMARILLA 10U", u: "", c: "", pu: 3.20, pc: 0 },
-      { nom: "BAYETA 30X40 AZUL 10U", u: "", c: "", pu: 3.20, pc: 0 },
-      { nom: "BAYETA 30X40 ROJA 10U", u: "", c: "", pu: 3.20, pc: 0 },
-      { nom: "BAYETA 30X40 VERDE 10U", u: "", c: "", pu: 3.20, pc: 0 },
-      { nom: "BAYETA PUNTO AZ 3K", u: "", c: "", pu: 9.91, pc: 0 }
-    ];
-
-    var lineas = [];
+    var arts = new Array();
+    var lineas = new Array();
     var streamActivo = null;
     var intervaloScan = null;
 
-    // 1. Fijar fecha actual automáticamente (modificable por el usuario)
+    // 1. Poner fecha de hoy
     var hoy = new Date();
-    var yyyy = hoy.getFullYear();
-    var mm = String(hoy.getMonth() + 1).padStart(2, '0');
-    var dd = String(hoy.getDate()).padStart(2, '0');
-    document.getElementById('fechaAlb').value = yyyy + '-' + mm + '-' + dd;
+    document.getElementById('fechaAlb').value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
 
-    // 2. Llenar desplegable de clientes al instante
+    // 2. Cargar lista base de clientes sin usar corchetes
     var sel = document.getElementById('selCli');
-    clientes.forEach(function(item) {
+    function addCli(nombre, cuenta) {
       var o = document.createElement('option');
-      o.text = item.n;
-      o.value = item.c;
+      o.text = nombre;
+      o.value = cuenta;
       sel.add(o);
-    });
+    }
+
+    addCli("LA MAR DE FRIA ALHAURIN", "43003904");
+    addCli("LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", "43003904");
+    addCli("LA SUBASTA BENALMADENA", "43004696");
+    addCli("OASIS BEACH CLUB", "43004678");
+    addCli("CAMPOSOL", "43001140");
+    addCli("ENTREMAREA FUENGIROLA", "43002274");
+    addCli("CHUPYTIRA TORREMOLINOS", "43006301");
+    addCli("LA MAR DE FRIA CERVECERIA SAN PEDRO", "43006530");
+    addCli("LA MAR DE FRIA EL PALO", "43008912");
+    addCli("CHUPYTIRA FUENGIROLA", "43007161");
+    addCli("LA MIJITA BAR", "43000003");
+    addCli("CHUPYTIRA CENTRO", "43018499");
+    addCli("LA CEVICHERIA CENTRO", "43000357");
+    addCli("LA MAR DE FRIA LA MERCED", "43000357");
+    addCli("TAQUERIA MEX CENTRO", "43000357");
+    addCli("TAQUERIA MEX TEATINOS", "43000357");
+    addCli("LA MAR DE FRIA TEATINOS", "");
+    addCli("LA MAR DE FRIA BENALMADENA (PLAYA SANTA ANA) / BRAVO", "43003912");
+    addCli("LA MAR DE FRIA PACIFICO", "43003912");
+    addCli("PLAYA PITAYA BEACH CLUB", "43009284");
+    addCli("LA MAR DE FRIA ESTEPONA / TAQUERIA ESTEPONA", "43007164");
+    addCli("LA MAR DE FRIA ECHEVERRIA", "43007164");
+
     document.getElementById('ctaCli').value = sel.value;
+    document.getElementById('msgDb').innerHTML = '✅ v14 Activa - 22 clientes listos. Buscando datos.xlsx...';
 
-    sel.addEventListener('change', function() {
-      document.getElementById('ctaCli').value = this.value;
-    });
-
-    // 3. Configuración guardada
-    document.getElementById('btnSave').addEventListener('click', function() {
-      var w = document.getElementById('wa').value.replace(/\D/g, '');
-      var e = document.getElementById('em').value.trim();
-      localStorage.setItem('cfg_v13', JSON.stringify({ w: w, e: e }));
-      document.getElementById('panelConfig').removeAttribute('open');
-      alert('✅ Destino guardado.');
-    });
-
+    // 3. Cargar configuración
     try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v13') || '{}');
+      var saved = JSON.parse(localStorage.getItem('cfg_v14') || '{}');
       if (saved.w) document.getElementById('wa').value = saved.w;
       if (saved.e) document.getElementById('em').value = saved.e;
     } catch (e) {}
 
-    // 4. Cámara nativa
-    document.getElementById('btnCam').addEventListener('click', function() {
+    function guardarDestino() {
+      var w = document.getElementById('wa').value.replace(/\D/g, '');
+      var e = document.getElementById('em').value.trim();
+      localStorage.setItem('cfg_v14', JSON.stringify({ w: w, e: e }));
+      document.getElementById('panelConfig').removeAttribute('open');
+      alert('✅ Destino guardado.');
+    }
+
+    // 4. Leer datos.xlsx desde GitHub para traer tus códigos de barras y precios
+    var baseUrl = window.location.href.split('?').at(0);
+    if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
+    else if (!baseUrl.endsWith('/')) baseUrl += '/';
+
+    fetch(baseUrl + 'datos.xlsx?t=' + Date.now())
+      .then(function(r) { return r.ok ? r.arrayBuffer() : Promise.reject('HTTP ' + r.status); })
+      .then(function(buf) {
+        if (typeof XLSX === 'undefined') throw new Error('Librería Excel no cargada');
+        var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+        var hoja = Reflect.get(wb.Sheets, wb.SheetNames.at(0));
+        var rows = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
+        
+        arts = new Array();
+        var modo = '';
+        rows.forEach(function(r) {
+          var bCol = String(r.B || '').trim();
+          var cCol = String(r.C || '').trim();
+          if (bCol === 'ARTICULO') { modo = 'A'; return; }
+          if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; return; }
+          if (modo === 'A' && bCol) {
+            arts.push({
+              nom: bCol,
+              u: cCol,
+              c: String(r.D || '').trim(),
+              eq: parseFloat(r.E) || 1,
+              pu: parseFloat(r.F) || 0,
+              pc: parseFloat(r.G) || 0
+            });
+          }
+        });
+        document.getElementById('msgDb').innerHTML = '✅ v14 Activa - ' + arts.length + ' artículos cargados desde datos.xlsx';
+      })
+      .catch(function(err) {
+        document.getElementById('msgDb').innerHTML = '⚠️ v14 Activa (22 clientes listos). No se leyó datos.xlsx: ' + err;
+      });
+
+    // 5. Cámara nativa directa
+    function alternarCamara() {
       var video = document.getElementById('videoPreview');
-      var btn = this;
+      var btn = document.getElementById('btnCam');
       var msg = document.getElementById('camMsg');
       msg.style.display = 'none';
 
@@ -180,7 +201,7 @@
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         msg.style.display = 'block';
-        msg.innerText = '⚠️ Abre este enlace en Google Chrome o Safari (no dentro de WhatsApp) para usar la cámara.';
+        msg.innerText = '⚠️ Abre este enlace en Google Chrome o Safari (no dentro de WhatsApp).';
         return;
       }
 
@@ -193,35 +214,6 @@
           btn.innerText = '⏹️ Cerrar Cámara';
 
           if ('BarcodeDetector' in window) {
-            var detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a'] });
+            var detector = new BarcodeDetector({ formats: new Array('ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a') });
             intervaloScan = setInterval(function() {
               if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                detector.detect(video).then(function(barcodes) {
-                  if (barcodes.length > 0) {
-                    var codigoLeido = barcodes.at(0).rawValue;
-                    document.getElementById('cod').value = codigoLeido;
-                    if (navigator.vibrate) navigator.vibrate(150);
-                    agregarArticulo();
-                  }
-                }).catch(function() {});
-              }
-            }, 600);
-          } else {
-            msg.style.display = 'block';
-            msg.innerText = '📷 Cámara abierta. Si tu navegador no lee automático, escribe el código abajo.';
-          }
-        })
-        .catch(function(err) {
-          btn.innerText = '📷 Abrir Cámara';
-          msg.style.display = 'block';
-          msg.innerText = '❌ Permiso de cámara denegado o no disponible (' + err.name + ').';
-        });
-    });
-
-    function detenerCamara() {
-      var video = document.getElementById('videoPreview');
-      if (intervaloScan) clearInterval(intervaloScan);
-      if (streamActivo) {
-        streamActivo.getTracks().forEach(function(track) { track.stop(); });
-        streamActivo = null;
-      }
