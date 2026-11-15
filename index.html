@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Suministros v10</title>
-  <script src="https://cloudflare.com"></script>
-  <script src="https://unpkg.com"></script>
+  <title>Albarán Suministros v11</title>
+  <script src="https://jsdelivr.net"></script>
+  <script src="https://jsdelivr.net"></script>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
     .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -17,20 +17,21 @@
     button.success { background: #198038; }
     button.secondary { background: #393939; }
     button.danger { background: #da1e28; width: auto; padding: 5px 10px; font-size: 0.8rem; }
-    #reader { width: 100%; margin-bottom: 10px; display: none; }
+    #reader { width: 100%; min-height: 250px; background: #000; border-radius: 8px; margin-bottom: 10px; display: none; overflow: hidden; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { border-bottom: 1px solid #ddd; padding: 7px 4px; text-align: left; }
     .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
     .status { padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; font-weight: bold; }
     details { background: #e5f6ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #0f62fe; }
     summary { font-weight: bold; cursor: pointer; color: #0f62fe; }
+    .cam-msg { font-size: 0.85rem; color: #a2191f; margin-bottom: 8px; display: none; background: #fff1f1; padding: 8px; border-radius: 6px; }
   </style>
 </head>
 <body class="notranslate">
 
-  <div id="msgDb" class="status">✅ Sistema listo (v10) - 22 Clientes y 61 Artículos cargados</div>
+  <div id="msgDb" class="status">✅ Sistema listo (v11) - Cargando catálogo...</div>
 
-  <!-- CONFIGURACIÓN DESPLEGABLE (NO BLOQUEA LA PANTALLA) -->
+  <!-- CONFIGURACIÓN DESPLEGABLE -->
   <details id="panelConfig">
     <summary>⚙️ Configurar WhatsApp o Correo de destino</summary>
     <div style="margin-top: 10px;">
@@ -52,11 +53,16 @@
   <!-- 2. ESCÁNER Y ARTÍCULOS -->
   <div class="card">
     <h2>2. Escaneo de Suministros</h2>
-    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara para Escanear</button>
+    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara en Vivo</button>
+    <div id="camError" class="cam-msg"></div>
     <div id="reader"></div>
 
-    <label>Código de Barras (o selecciona artículo):</label>
-    <input type="text" id="cod" placeholder="Escanea o escribe el código EAN...">
+    <!-- Respaldo por foto si el visor en vivo falla -->
+    <input type="file" id="fotoBarcode" accept="image/*" capture="environment" style="display:none;">
+    <button type="button" class="secondary" id="btnFoto" style="background:#525252; font-size:0.9rem; padding:10px;">📸 Escanear haciendo una foto</button>
+
+    <label>Código de Barras (EAN Unidad o Caja):</label>
+    <input type="text" id="cod" placeholder="Escanea o escribe el código...">
     
     <div style="display:flex; gap:8px;">
       <input type="number" id="cant" value="1" min="1" style="flex:1;">
@@ -77,7 +83,6 @@
   </div>
 
   <script>
-    // BASE DE DATOS INCRUSTADA (FUNCIONA SIEMPRE AL INSTANTE)
     var clientesDefault = [
       { n: "LA MAR DE FRIA ALHAURIN", c: "43003904" },
       { n: "LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", c: "43003904" },
@@ -108,7 +113,6 @@
     var qr = null;
     var camOn = false;
 
-    // Llenar clientes por defecto nada más abrir
     function cargarClientesBase(lista) {
       var sel = document.getElementById('selCli');
       sel.innerHTML = '';
@@ -129,24 +133,22 @@
       document.getElementById('ctaCli').value = this.value;
     });
 
-    // Guardar configuración
     document.getElementById('btnSave').addEventListener('click', function() {
       var w = document.getElementById('wa').value.replace(/\D/g, '');
       var e = document.getElementById('em').value.trim();
-      localStorage.setItem('cfg_v10', JSON.stringify({ w: w, e: e }));
+      localStorage.setItem('cfg_v11', JSON.stringify({ w: w, e: e }));
       document.getElementById('panelConfig').removeAttribute('open');
-      alert('✅ Destino guardado correctamente.');
+      alert('✅ Destino guardado.');
     });
 
-    // Cargar configuración guardada
     try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v10') || '{}');
+      var saved = JSON.parse(localStorage.getItem('cfg_v11') || '{}');
       if (saved.w) document.getElementById('wa').value = saved.w;
       if (saved.e) document.getElementById('em').value = saved.e;
       if (!saved.w && !saved.e) document.getElementById('panelConfig').setAttribute('open', '');
     } catch (e) {}
 
-    // Intentar leer datos.xlsx en segundo plano para actualizar códigos de barras
+    // Cargar datos.xlsx
     var baseUrl = window.location.href.split('?').at(0);
     if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
     else if (!baseUrl.endsWith('/')) baseUrl += '/';
@@ -178,49 +180,36 @@
         document.getElementById('msgDb').innerHTML = '✅ Sincronizado con datos.xlsx (' + arts.length + ' artículos)';
       })
       .catch(function() {
-        // Si falla el fetch, mantiene los clientes incrustados sin bloquear la app
+        document.getElementById('msgDb').innerHTML = '✅ Catálogo base cargado (22 clientes)';
       });
 
-    // Cámara
+    // CÁMARA EN VIVO MEJORADA
     document.getElementById('btnCam').addEventListener('click', function() {
       var d = document.getElementById('reader');
       var b = this;
-      if (!camOn) {
-        d.style.display = 'block';
-        b.innerText = '⏹️ Cerrar Cámara';
-        qr = new Html5Qrcode('reader');
-        qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, function(txt) {
-          document.getElementById('cod').value = txt;
-          agregarArticulo();
-          qr.pause();
-          setTimeout(function() { qr.resume(); }, 1200);
-        }).catch(function(e) { alert('Error cámara: ' + e); });
-        camOn = true;
-      } else {
-        qr.stop().then(function() {
-          d.style.display = 'none';
-          b.innerText = '📷 Abrir Cámara para Escanear';
-          camOn = false;
-        });
-      }
-    });
+      var errBox = document.getElementById('camError');
+      errBox.style.display = 'none';
 
-    document.getElementById('btnAdd').addEventListener('click', agregarArticulo);
-
-    function agregarArticulo() {
-      var c = document.getElementById('cod').value.trim();
-      var q = parseInt(document.getElementById('cant').value, 10) || 1;
-      if (!c) return;
-      var enc = null, tipo = 'UNID', pr = 0;
-
-      arts.forEach(function(item) {
-        if (item.u === c && !enc) { enc = item; pr = enc.pu; }
-        else if (item.c === c && !enc) { enc = item; tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); }
-      });
-
-      if (!enc) {
-        alert('⚠️ El código "' + c + '" no tiene EAN asignado en datos.xlsx.');
+      if (typeof Html5Qrcode === 'undefined') {
+        errBox.style.display = 'block';
+        errBox.innerText = '⚠️ El lector en vivo no cargó por conexión. Usa el botón de abajo "📸 Escanear haciendo una foto".';
         return;
       }
 
+      if (!camOn) {
+        d.style.display = 'block';
+        b.innerText = '⏳ Iniciando cámara...';
+        qr = new Html5Qrcode('reader');
+
+        Html5Qrcode.getCameras().then(function(devices) {
+          if (!devices || devices.length === 0) {
+            throw new Error('No se detectó ninguna cámara en este dispositivo.');
+          }
+          // Elegir cámara trasera si existe, si no la primera disponible
+          var camId = devices.at(0).id;
+          devices.forEach(function(dev) {
+            if (dev.label && (dev.label.toLowerCase().includes('back') || dev.label.toLowerCase().includes('trasera') || dev.label.toLowerCase().includes('environment'))) {
+              camId = dev.id;
+            }
+          });
 
