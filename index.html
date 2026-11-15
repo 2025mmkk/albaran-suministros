@@ -3,222 +3,213 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v3.0</title>
-  <script src="https://sheetjs.com"></script>
-  <script src="https://unpkg.com" type="text/javascript"></script>
+  <title>Albarán Móvil v4.0</title>
+  <script src="https://cloudflare.com"></script>
+  <script src="https://unpkg.com"></script>
   <style>
-    :root { --primary: #0f62fe; --bg: #f4f4f4; --card: #ffffff; --text: #161616; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
-    .card { background: var(--card); border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
-    h2, h3 { margin-top: 0; font-size: 1.1rem; color: var(--primary); }
+    body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 15px; }
+    .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    h2, h3 { margin-top: 0; color: #0f62fe; font-size: 1.1rem; }
     label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
-    select, input[type="text"], input[type="email"], input[type="tel"], input[type="number"] {
-      width: 100%; padding: 12px; margin-bottom: 14px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; background: #fff;
-    }
-    button {
-      width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 6px;
-      font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px;
-    }
-    button.secondary { background: #393939; }
+    select, input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+    button { width: 100%; padding: 14px; background: #0f62fe; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
     button.success { background: #198038; }
-    button.danger { background: #da1e28; padding: 6px 10px; width: auto; font-size: 0.85rem; }
-    button.small-btn { width: auto; padding: 6px 12px; font-size: 0.8rem; background: #525252; float: right; margin: 0; }
-    #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 10px; display: none; }
+    button.secondary { background: #393939; }
+    button.danger { background: #da1e28; width: auto; padding: 6px 10px; font-size: 0.85rem; }
+    #reader { width: 100%; margin-bottom: 10px; display: none; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     th, td { border-bottom: 1px solid #ddd; padding: 8px 4px; text-align: left; }
-    th { background: #e0e0e0; }
     .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
-    .badge { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; }
-    .config-banner { background: #e5f6ff; border-left: 4px solid var(--primary); padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85rem; overflow: hidden; line-height: 28px; }
-    .status-bar { font-size: 0.85rem; padding: 10px; border-radius: 6px; margin-bottom: 12px; background: #defbe6; color: #0e6027; border: 1px solid #a7f0ba; }
-    .status-error { background: #fff1f1; color: #a2191f; border: 1px solid #ffb3b8; }
+    .status { padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; }
+    .err { background: #fff1f1; color: #a2191f; }
   </style>
 </head>
 <body>
 
-  <!-- BARRA SUPERIOR DE CONFIGURACIÓN -->
-  <div id="configBanner" class="config-banner" style="display:none;">
-    <button type="button" class="small-btn" onclick="abrirConfig()">⚙️ Cambiar destino</button>
-    <span id="resumenConfig"></span>
+  <!-- PANTALLA 1: CONFIGURACIÓN -->
+  <div class="card" id="p1">
+    <h2>⚙️ Configuración de Envío (v4.0)</h2>
+    <label>📱 WhatsApp destino (ej: 34600112233):</label>
+    <input type="tel" id="wa" placeholder="34600112233">
+    
+    <label>📧 Correo destino:</label>
+    <input type="email" id="em" placeholder="almacen@empresa.com">
+
+    <button type="button" class="success" onclick="irApp(true)">💾 Guardar y Entrar</button>
+    <button type="button" class="secondary" onclick="irApp(false)">⏩ Entrar directamente</button>
   </div>
 
-  <!-- 0. CONFIGURACIÓN INICIAL -->
-  <div class="card" id="setupSection">
-    <h2>⚙️ Configuración de Envío (v3.0)</h2>
-    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Define a dónde se enviarán los albaranes (puedes rellenar uno o ambos):</p>
-    
-    <label for="destinoWhatsapp">📱 Teléfono WhatsApp (con prefijo país, ej: 34600112233):</label>
-    <input type="tel" id="destinoWhatsapp" placeholder="34600112233" />
+  <!-- PANTALLA 2: APLICACIÓN -->
+  <div id="p2" style="display:none;">
+    <div id="msgDb" class="status">⏳ Buscando datos.xlsx...</div>
 
-    <label for="destinoEmail">📧 Correo Electrónico de recepción:</label>
-    <input type="email" id="destinoEmail" placeholder="almacen@empresa.com" />
-
-    <button type="button" class="success" onclick="guardarConfig()">💾 Guardar y Entrar a la App</button>
-    <button type="button" class="secondary" onclick="mostrarApp()">⏩ Entrar directamente sin configurar</button>
-  </div>
-
-  <!-- APLICACIÓN PRINCIPAL -->
-  <div id="appPrincipal" style="display:none;">
-    
-    <div id="dbStatus" class="status-bar">⏳ Conectando con datos.xlsx...</div>
-
-    <!-- 1. DATOS DEL CLIENTE -->
-    <div class="card" id="clienteSection" style="display:none;">
-      <h2>1. Selección de Cliente</h2>
-      <label for="selectCliente">Restaurante:</label>
-      <select id="selectCliente" onchange="cambiarCliente()"></select>
-      <label>Cuenta Cliente:</label>
-      <input type="text" id="cuentaCliente" readonly style="background: #e8e8e8;" />
+    <div class="card">
+      <h2>1. Cliente</h2>
+      <select id="selCli" onchange="document.getElementById('ctaCli').value = this.value"></select>
+      <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
     </div>
 
-    <!-- 2. ESCÁNER Y ENTRADA DE ARTÍCULOS -->
-    <div class="card" id="escanerSection" style="display:none;">
-      <h2>2. Escaneo de Suministros</h2>
-      <button type="button" id="btnToggleCamara" class="secondary" onclick="toggleCamara()">📷 Abrir Cámara para Escanear</button>
+    <div class="card">
+      <h2>2. Escanear o Añadir</h2>
+      <button type="button" class="secondary" id="btnCam" onclick="cam()">📷 Abrir Cámara</button>
       <div id="reader"></div>
-
-      <label for="inputCodigo">Código de Barras (EAN Unidad o Caja):</label>
-      <input type="text" id="inputCodigo" placeholder="Escanea o escribe el código..." />
-
-      <div style="display: flex; gap: 10px;">
-        <div style="flex: 1;">
-          <label for="inputCantidad">Cantidad:</label>
-          <input type="number" id="inputCantidad" value="1" min="1" />
-        </div>
-        <div style="flex: 2; display: flex; align-items: flex-end;">
-          <button type="button" onclick="agregarManual()">➕ Añadir al Albarán</button>
-        </div>
-      </div>
+      <input type="text" id="cod" placeholder="Código de barras...">
+      <input type="number" id="cant" value="1" min="1">
+      <button type="button" onclick="addArt()">➕ Añadir al Albarán</button>
     </div>
 
-    <!-- 3. RESUMEN DEL ALBARÁN Y ENVÍO -->
-    <div class="card" id="albaranSection" style="display:none;">
+    <div class="card">
       <h3>Albarán Actual</h3>
-      <div style="overflow-x: auto;">
-        <table id="tablaAlbaran">
-          <thead>
-            <tr>
-              <th>Artículo</th>
-              <th>Cant.</th>
-              <th>Precio</th>
-              <th>Subtotal</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div class="total-box">TOTAL: <span id="totalAlbaran">0.00</span> €</div>
+      <table>
+        <thead><tr><th>Artículo</th><th>Cant</th><th>Subt</th><th></th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+      <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
       <br>
-      <button type="button" class="success" onclick="finalizarYEnviar()">🚀 Finalizar, Descargar y Enviar</button>
+      <button type="button" class="success" onclick="enviar()">🚀 Finalizar y Enviar</button>
+      <button type="button" class="secondary" onclick="document.getElementById('p2').style.display='none';document.getElementById('p1').style.display='block';">⚙️ Cambiar Destino</button>
     </div>
-
   </div>
 
   <script>
-    var baseArticulos = [];
-    var baseClientes = [];
-    var lineasAlbaran = [];
-    var html5QrCode = null;
-    var camaraActiva = false;
-    var configActual = { whatsapp: '', email: '' };
+    var arts = [];
+    var lineas = [];
+    var qr = null;
+    var camOn = false;
 
-    function guardarConfig() {
-      var wa = document.getElementById('destinoWhatsapp').value.replace(/\D/g, '');
-      var em = document.getElementById('destinoEmail').value.trim();
-
-      if (!wa && !em) {
-        alert("Introduce un teléfono WhatsApp o un Correo Electrónico, o pulsa 'Entrar directamente'.");
-        return;
+    function irApp(guardar) {
+      if (guardar) {
+        var w = document.getElementById('wa').value.replace(/\D/g, '');
+        var e = document.getElementById('em').value.trim();
+        if (!w && !e) { alert('Escribe un teléfono o correo, o pulsa Entrar directamente.'); return; }
+        localStorage.setItem('cfg_v4', JSON.stringify({ w: w, e: e }));
       }
-
-      configActual = { whatsapp: wa, email: em };
-      try {
-        localStorage.setItem('albaran_config_v3', JSON.stringify(configActual));
-      } catch (e) {}
-      mostrarApp();
+      document.getElementById('p1').style.display = 'none';
+      document.getElementById('p2').style.display = 'block';
+      cargarExcel();
     }
 
-    function abrirConfig() {
-      document.getElementById('destinoWhatsapp').value = configActual.whatsapp || '';
-      document.getElementById('destinoEmail').value = configActual.email || '';
-      document.getElementById('setupSection').style.display = 'block';
-      document.getElementById('appPrincipal').style.display = 'none';
-      document.getElementById('configBanner').style.display = 'none';
-    }
-
-    function mostrarApp() {
-      document.getElementById('setupSection').style.display = 'none';
-      document.getElementById('appPrincipal').style.display = 'block';
-      document.getElementById('configBanner').style.display = 'block';
-
-      var partes = [];
-      if (configActual.whatsapp) partes.push('WA: +' + configActual.whatsapp);
-      if (configActual.email) partes.push('Email: ' + configActual.email);
-      document.getElementById('resumenConfig').innerHTML = partes.length > 0 ? '<b>Destino:</b> ' + partes.join(' | ') : '<b>Sin destino configurado</b>';
-    }
-
-    window.onload = function() {
-      try {
-        var guardada = localStorage.getItem('albaran_config_v3');
-        if (guardada) {
-          configActual = JSON.parse(guardada);
-          mostrarApp();
-        }
-      } catch (e) {}
-      cargarExcelDesdeGitHub();
-    };
-
-    function cargarExcelDesdeGitHub() {
-      var statusDiv = document.getElementById('dbStatus');
+    function cargarExcel() {
+      var m = document.getElementById('msgDb');
       fetch('datos.xlsx?t=' + Date.now())
-        .then(function(res) {
-          if (!res.ok) throw new Error('Archivo no encontrado');
-          return res.arrayBuffer();
+        .then(function(r) { if (!r.ok) throw new Error(); return r.arrayBuffer(); })
+        .then(function(b) {
+          var wb = XLSX.read(new Uint8Array(b), { type: 'array' });
+          var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames.at(0)], { header: 'A', defval: '' });
+          arts = [];
+          var sel = document.getElementById('selCli');
+          sel.innerHTML = '';
+          var modo = '';
+
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows.at(i);
+            var bCol = String(r.B || '').trim();
+            var cCol = String(r.C || '').trim();
+            if (bCol === 'ARTICULO') { modo = 'A'; continue; }
+            if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; continue; }
+
+            if (modo === 'A' && bCol) {
+              arts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
+            } else if (modo === 'C' && bCol) {
+              var o = document.createElement('option');
+              o.text = bCol;
+              o.value = cCol;
+              sel.add(o);
+            }
+          }
+          if (sel.options.length > 0) document.getElementById('ctaCli').value = sel.value;
+          m.className = 'status';
+          m.innerHTML = '✅ Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
         })
-        .then(function(buf) {
-          var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-          var nombrePrimeraHoja = wb.SheetNames.at(0);
-          var hoja = wb.Sheets[nombrePrimeraHoja];
-          // Leemos usando letras de columna (A, B, C, D, E, F, G)
-          var filas = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
-          procesarHojaMaestra(filas);
-        })
-        .catch(function(err) {
-          statusDiv.className = 'status-bar status-error';
-          statusDiv.innerHTML = '❌ <b>No se pudo leer datos.xlsx:</b> Verifica que el archivo en GitHub se llame exactamente <b>datos.xlsx</b> en minúsculas.';
+        .catch(function() {
+          m.className = 'status err';
+          m.innerHTML = '❌ Error: No se encontró datos.xlsx en GitHub.';
         });
     }
 
-    function procesarHojaMaestra(filas) {
-      baseArticulos = [];
-      baseClientes = [];
-      var modo = '';
-
-      for (var i = 0; i < filas.length; i++) {
-        var f = filas.at(i);
-        var colB = String(f.B || '').trim();
-        var colC = String(f.C || '').trim();
-
-        if (colB === 'ARTICULO') { modo = 'ARTICULOS'; continue; }
-        if (colB === 'NOMBRE DE RESTAURANTE') { modo = 'CLIENTES'; continue; }
-
-        if (modo === 'ARTICULOS' && colB !== '') {
-          baseArticulos.push({
-            articulo: colB,
-            eanUnidad: colC,
-            eanCaja: String(f.D || '').trim(),
-            equivalencia: parseFloat(f.E) || 1,
-            precioUnidad: parseFloat(f.F) || 0,
-            precioCaja: parseFloat(f.G) || 0
-          });
-        } else if (modo === 'CLIENTES' && colB !== '') {
-          baseClientes.push({ nombre: colB, cuenta: colC });
-        }
+    function cam() {
+      var d = document.getElementById('reader');
+      var b = document.getElementById('btnCam');
+      if (!camOn) {
+        d.style.display = 'block'; b.innerText = '⏹️ Cerrar Cámara';
+        qr = new Html5Qrcode('reader');
+        qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, function(txt) {
+          document.getElementById('cod').value = txt;
+          addArt();
+          qr.pause(); setTimeout(function() { qr.resume(); }, 1200);
+        }).catch(function(e) { alert('Error cámara: ' + e); });
+        camOn = true;
+      } else {
+        qr.stop().then(function() { d.style.display = 'none'; b.innerText = '📷 Abrir Cámara'; camOn = false; });
       }
+    }
 
-      var select = document.getElementById('selectCliente');
-      select.innerHTML = '';
-      for (var j = 0; j < baseClientes.length; j++) {
-        var cli = baseClientes.at(j);
-        var opt = document.createElement('option');
+    function addArt() {
+      var c = document.getElementById('cod').value.trim();
+      var q = parseInt(document.getElementById('cant').value, 10) || 1;
+      if (!c) return;
+      var enc = null, tipo = 'UNID', pr = 0;
+
+      for (var i = 0; i < arts.length; i++) {
+        if (arts.at(i).u === c) { enc = arts.at(i); pr = enc.pu; break; }
+        if (arts.at(i).c === c) { enc = arts.at(i); tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); break; }
+      }
+      if (!enc) { alert('Código no encontrado: ' + c); return; }
+
+      lineas.push({ cod: c, nom: enc.nom + ' (' + tipo + ')', q: q, pr: pr, sub: q * pr });
+      document.getElementById('cod').value = '';
+      document.getElementById('cant').value = 1;
+      pintar();
+    }
+
+    function pintar() {
+      var tb = document.getElementById('tb');
+      tb.innerHTML = '';
+      var t = 0;
+      for (var i = 0; i < lineas.length; i++) {
+        var l = lineas.at(i);
+        t += l.sub;
+        tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.q + '</td><td>' + l.sub.toFixed(2) + '€</td><td><button class="danger" onclick="lineas.splice(' + i + ',1);pintar()">X</button></td></tr>';
+      }
+      document.getElementById('tot').innerText = t.toFixed(2);
+    }
+
+    function enviar() {
+      if (!lineas.length) { alert('Albarán vacío'); return; }
+      var sel = document.getElementById('selCli');
+      var cli = sel.options[sel.selectedIndex].text;
+      var cta = document.getElementById('ctaCli').value;
+      var tot = document.getElementById('tot').innerText;
+      var fec = new Date().toISOString().slice(0, 10);
+
+      var wsData = [['FORMULARIO DE SUMINISTRO'], ['RESTAURANTE', cli], ['CUENTA', cta], ['CODIGO', 'ARTICULO', 'UNIDADES', 'PRECIO', 'SUBTOTAL']];
+      for (var i = 0; i < lineas.length; i++) {
+        var l = lineas.at(i);
+        wsData.push([l.cod, l.nom, l.q, l.pr, l.sub]);
+      }
+      wsData.push(['', '', '', 'TOTAL', tot]);
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'ALBARAN');
+      XLSX.writeFile(wb, 'Albaran_' + cli.replace(/\W/g, '_') + '_' + fec + '.xlsx');
+
+      var txt = '📋 *ALBARÁN SUMINISTROS*\n📅 ' + fec + '\n🏢 ' + cli + ' (' + cta + ')\n----------------\n';
+      for (var j = 0; j < lineas.length; j++) txt += '• ' + lineas.at(j).q + 'x ' + lineas.at(j).nom + ' (' + lineas.at(j).sub.toFixed(2) + '€)\n';
+      txt += '----------------\n💰 *TOTAL: ' + tot + ' €*';
+
+      var cfg = JSON.parse(localStorage.getItem('cfg_v4') || '{}');
+      if (cfg.w) window.open('https://wa.me' + cfg.w + '?text=' + encodeURIComponent(txt), '_blank');
+      if (cfg.e) window.location.href = 'mailto:' + cfg.e + '?subject=' + encodeURIComponent('Albarán ' + cli) + '&body=' + encodeURIComponent(txt);
+    }
+
+    window.onload = function() {
+      var saved = localStorage.getItem('cfg_v4');
+      if (saved) {
+        var c = JSON.parse(saved);
+        document.getElementById('wa').value = c.w || '';
+        document.getElementById('em').value = c.e || '';
+        irApp(false);
+      }
+    };
+  </script>
+</body>
+</html>
