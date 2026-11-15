@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" translate="no">
 <head>
   <meta charset="UTF-8">
+  <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v8.0</title>
+  <title>Albarán Móvil v9.0</title>
   <script src="https://cloudflare.com"></script>
   <script src="https://unpkg.com"></script>
   <style>
@@ -24,19 +25,19 @@
     .err { background: #fff1f1; color: #a2191f; }
   </style>
 </head>
-<body>
+<body class="notranslate">
 
   <!-- PANTALLA 1: CONFIGURACIÓN -->
   <div class="card" id="p1">
-    <h2>⚙️ Configuración de Envío (v8.0)</h2>
+    <h2>⚙️ Configuración de Envío (v9.0)</h2>
     <label>📱 WhatsApp destino (ej: 34600112233):</label>
     <input type="tel" id="wa" placeholder="34600112233">
     
     <label>📧 Correo destino:</label>
     <input type="email" id="em" placeholder="almacen@empresa.com">
 
-    <button type="button" class="success" onclick="irApp(true)">💾 Guardar y Entrar</button>
-    <button type="button" class="secondary" onclick="irApp(false)">⏩ Entrar directamente</button>
+    <button type="button" id="btnGuardar" class="success">💾 Guardar y Entrar</button>
+    <button type="button" id="btnSaltar" class="secondary">⏩ Entrar directamente</button>
   </div>
 
   <!-- PANTALLA 2: APLICACIÓN -->
@@ -45,22 +46,22 @@
     
     <div id="boxManual" style="display:none;" class="card">
       <label>📂 Cargar Excel manualmente desde este dispositivo:</label>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="leerArchivoLocal(this)">
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
     </div>
 
     <div class="card">
       <h2>1. Cliente</h2>
-      <select id="selCli" onchange="document.getElementById('ctaCli').value = this.value"></select>
+      <select id="selCli"></select>
       <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
     </div>
 
     <div class="card">
       <h2>2. Escanear o Añadir</h2>
-      <button type="button" class="secondary" id="btnCam" onclick="cam()">📷 Abrir Cámara</button>
+      <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
       <div id="reader"></div>
       <input type="text" id="cod" placeholder="Código de barras...">
       <input type="number" id="cant" value="1" min="1">
-      <button type="button" onclick="addArt()">➕ Añadir al Albarán</button>
+      <button type="button" id="btnAdd">➕ Añadir al Albarán</button>
     </div>
 
     <div class="card">
@@ -71,8 +72,8 @@
       </table>
       <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
       <br>
-      <button type="button" class="success" onclick="enviar()">🚀 Finalizar y Enviar</button>
-      <button type="button" class="secondary" onclick="document.getElementById('p2').style.display='none';document.getElementById('p1').style.display='block';">⚙️ Cambiar Destino</button>
+      <button type="button" class="success" id="btnEnviar">🚀 Finalizar y Enviar</button>
+      <button type="button" class="secondary" id="btnVolver">⚙️ Cambiar Destino</button>
     </div>
   </div>
 
@@ -82,18 +83,31 @@
     var qr = null;
     var camOn = false;
 
-    function irApp(guardar) {
-      if (guardar) {
-        var w = document.getElementById('wa').value.replace(/\D/g, '');
-        var e = document.getElementById('em').value.trim();
-        if (!w && !e) {
-          alert('Escribe un teléfono o correo, o pulsa Entrar directamente.');
-          return;
-        }
-        try {
-          localStorage.setItem('cfg_v8', JSON.stringify({ w: w, e: e }));
-        } catch (err) {}
+    document.getElementById('btnGuardar').addEventListener('click', function() {
+      var w = document.getElementById('wa').value.replace(/\D/g, '');
+      var e = document.getElementById('em').value.trim();
+      if (!w && !e) {
+        alert('Escribe un teléfono o correo, o pulsa Entrar directamente.');
+        return;
       }
+      try {
+        localStorage.setItem('cfg_v9', JSON.stringify({ w: w, e: e }));
+      } catch (err) {}
+      entrarApp();
+    });
+
+    document.getElementById('btnSaltar').addEventListener('click', entrarApp);
+
+    document.getElementById('btnVolver').addEventListener('click', function() {
+      document.getElementById('p2').style.display = 'none';
+      document.getElementById('p1').style.display = 'block';
+    });
+
+    document.getElementById('selCli').addEventListener('change', function() {
+      document.getElementById('ctaCli').value = this.value;
+    });
+
+    function entrarApp() {
       document.getElementById('p1').style.display = 'none';
       document.getElementById('p2').style.display = 'block';
       cargarExcel();
@@ -173,26 +187,26 @@
         });
     }
 
-    function leerArchivoLocal(input) {
-      var file = input.files.item(0);
+    document.getElementById('fileInput').addEventListener('change', function() {
+      var file = this.files.item(0);
       if (!file) return;
       var reader = new FileReader();
       reader.onload = function(e) {
         procesarBuffer(e.target.result);
       };
       reader.readAsArrayBuffer(file);
-    }
+    });
 
-    function cam() {
+    document.getElementById('btnCam').addEventListener('click', function() {
       var d = document.getElementById('reader');
-      var b = document.getElementById('btnCam');
+      var b = this;
       if (!camOn) {
         d.style.display = 'block';
         b.innerText = '⏹️ Cerrar Cámara';
         qr = new Html5Qrcode('reader');
         qr.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, function(txt) {
           document.getElementById('cod').value = txt;
-          addArt();
+          agregarArticulo();
           qr.pause();
           setTimeout(function() { qr.resume(); }, 1200);
         }).catch(function(e) {
@@ -206,9 +220,11 @@
           camOn = false;
         });
       }
-    }
+    });
 
-    function addArt() {
+    document.getElementById('btnAdd').addEventListener('click', agregarArticulo);
+
+    function agregarArticulo() {
       var c = document.getElementById('cod').value.trim();
       var q = parseInt(document.getElementById('cant').value, 10) || 1;
       if (!c) return;
@@ -244,17 +260,3 @@
       var t = 0;
       lineas.forEach(function(l, idx) {
         t += l.sub;
-        tb.innerHTML += '<tr><td>' + l.nom + '</td><td>' + l.q + '</td><td>' + l.sub.toFixed(2) + '€</td><td><button class="danger" onclick="lineas.splice(' + idx + ',1);pintar()">X</button></td></tr>';
-      });
-      document.getElementById('tot').innerText = t.toFixed(2);
-    }
-
-    function enviar() {
-      if (!lineas.length) {
-        alert('Albarán vacío');
-        return;
-      }
-      var sel = document.getElementById('selCli');
-      var opcion = sel.options.item(sel.selectedIndex);
-      var cli = opcion ? opcion.text : 'Cliente';
-      var cta = document.getElementById('ctaCli').value;
