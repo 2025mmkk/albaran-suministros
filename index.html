@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v4.0</title>
+  <title>Albarán Móvil v7.0</title>
   <script src="https://cloudflare.com"></script>
   <script src="https://unpkg.com"></script>
   <style>
@@ -28,7 +28,7 @@
 
   <!-- PANTALLA 1: CONFIGURACIÓN -->
   <div class="card" id="p1">
-    <h2>⚙️ Configuración de Envío (v4.0)</h2>
+    <h2>⚙️ Configuración de Envío (v7.0)</h2>
     <label>📱 WhatsApp destino (ej: 34600112233):</label>
     <input type="tel" id="wa" placeholder="34600112233">
     
@@ -41,7 +41,13 @@
 
   <!-- PANTALLA 2: APLICACIÓN -->
   <div id="p2" style="display:none;">
-    <div id="msgDb" class="status">⏳ Buscando datos.xlsx...</div>
+    <div id="msgDb" class="status">⏳ Conectando con datos.xlsx...</div>
+    
+    <!-- BOTÓN DE RESPALDO POR SI FALLA LA NUBE -->
+    <div id="boxManual" style="display:none;" class="card">
+      <label>📂 Cargar Excel manualmente desde este dispositivo:</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="leerArchivoLocal(this)">
+    </div>
 
     <div class="card">
       <h2>1. Cliente</h2>
@@ -82,49 +88,77 @@
         var w = document.getElementById('wa').value.replace(/\D/g, '');
         var e = document.getElementById('em').value.trim();
         if (!w && !e) { alert('Escribe un teléfono o correo, o pulsa Entrar directamente.'); return; }
-        localStorage.setItem('cfg_v4', JSON.stringify({ w: w, e: e }));
+        localStorage.setItem('cfg_v7', JSON.stringify({ w: w, e: e }));
       }
       document.getElementById('p1').style.display = 'none';
       document.getElementById('p2').style.display = 'block';
       cargarExcel();
     }
 
+    function procesarBuffer(buf) {
+      var m = document.getElementById('msgDb');
+      var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
+      var nombreHoja = wb.SheetNames.at(0);
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[nombreHoja], { header: 'A', defval: '' });
+      arts = [];
+      var sel = document.getElementById('selCli');
+      sel.innerHTML = '';
+      var modo = '';
+
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows.at(i);
+        var bCol = String(r.B || '').trim();
+        var cCol = String(r.C || '').trim();
+        if (bCol === 'ARTICULO') { modo = 'A'; continue; }
+        if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; continue; }
+
+        if (modo === 'A' && bCol) {
+          arts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
+        } else if (modo === 'C' && bCol) {
+          var o = document.createElement('option');
+          o.text = bCol;
+          o.value = cCol;
+          sel.add(o);
+        }
+      }
+      if (sel.options.length > 0) document.getElementById('ctaCli').value = sel.value;
+      m.className = 'status';
+      m.innerHTML = '✅ ¡Listo! Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
+      document.getElementById('boxManual').style.display = 'none';
+    }
+
     function cargarExcel() {
       var m = document.getElementById('msgDb');
-      fetch('datos.xlsx?t=' + Date.now())
-        .then(function(r) { if (!r.ok) throw new Error(); return r.arrayBuffer(); })
-        .then(function(b) {
-          var wb = XLSX.read(new Uint8Array(b), { type: 'array' });
-          var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames.at(0)], { header: 'A', defval: '' });
-          arts = [];
-          var sel = document.getElementById('selCli');
-          sel.innerHTML = '';
-          var modo = '';
+      // Construye la ruta exacta basándose en la URL actual
+      var baseUrl = window.location.href.split('?').at(0);
+      if (baseUrl.endsWith('index.html')) {
+        baseUrl = baseUrl.replace('index.html', '');
+      } else if (!baseUrl.endsWith('/')) {
+        baseUrl += '/';
+      }
+      var urlExcel = baseUrl + 'datos.xlsx?t=' + Date.now();
 
-          for (var i = 0; i < rows.length; i++) {
-            var r = rows.at(i);
-            var bCol = String(r.B || '').trim();
-            var cCol = String(r.C || '').trim();
-            if (bCol === 'ARTICULO') { modo = 'A'; continue; }
-            if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; continue; }
-
-            if (modo === 'A' && bCol) {
-              arts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
-            } else if (modo === 'C' && bCol) {
-              var o = document.createElement('option');
-              o.text = bCol;
-              o.value = cCol;
-              sel.add(o);
-            }
-          }
-          if (sel.options.length > 0) document.getElementById('ctaCli').value = sel.value;
-          m.className = 'status';
-          m.innerHTML = '✅ Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
+      fetch(urlExcel)
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' en ' + urlExcel);
+          return r.arrayBuffer();
         })
-        .catch(function() {
+        .then(function(b) {
+          procesarBuffer(b);
+        })
+        .catch(function(err) {
           m.className = 'status err';
-          m.innerHTML = '❌ Error: No se encontró datos.xlsx en GitHub.';
+          m.innerHTML = '❌ No se pudo cargar automático (' + err.message + '). Puedes seleccionarlo abajo:';
+          document.getElementById('boxManual').style.display = 'block';
         });
+    }
+
+    function leerArchivoLocal(input) {
+      var file = input.files.at(0);
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function(e) { procesarBuffer(e.target.result); };
+      reader.readAsArrayBuffer(file);
     }
 
     function cam() {
@@ -151,8 +185,9 @@
       var enc = null, tipo = 'UNID', pr = 0;
 
       for (var i = 0; i < arts.length; i++) {
-        if (arts.at(i).u === c) { enc = arts.at(i); pr = enc.pu; break; }
-        if (arts.at(i).c === c) { enc = arts.at(i); tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); break; }
+        var item = arts.at(i);
+        if (item.u === c) { enc = item; pr = enc.pu; break; }
+        if (item.c === c) { enc = item; tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); break; }
       }
       if (!enc) { alert('Código no encontrado: ' + c); return; }
 
@@ -190,26 +225,3 @@
       wsData.push(['', '', '', 'TOTAL', tot]);
       var wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'ALBARAN');
-      XLSX.writeFile(wb, 'Albaran_' + cli.replace(/\W/g, '_') + '_' + fec + '.xlsx');
-
-      var txt = '📋 *ALBARÁN SUMINISTROS*\n📅 ' + fec + '\n🏢 ' + cli + ' (' + cta + ')\n----------------\n';
-      for (var j = 0; j < lineas.length; j++) txt += '• ' + lineas.at(j).q + 'x ' + lineas.at(j).nom + ' (' + lineas.at(j).sub.toFixed(2) + '€)\n';
-      txt += '----------------\n💰 *TOTAL: ' + tot + ' €*';
-
-      var cfg = JSON.parse(localStorage.getItem('cfg_v4') || '{}');
-      if (cfg.w) window.open('https://wa.me' + cfg.w + '?text=' + encodeURIComponent(txt), '_blank');
-      if (cfg.e) window.location.href = 'mailto:' + cfg.e + '?subject=' + encodeURIComponent('Albarán ' + cli) + '&body=' + encodeURIComponent(txt);
-    }
-
-    window.onload = function() {
-      var saved = localStorage.getItem('cfg_v4');
-      if (saved) {
-        var c = JSON.parse(saved);
-        document.getElementById('wa').value = c.w || '';
-        document.getElementById('em').value = c.e || '';
-        irApp(false);
-      }
-    };
-  </script>
-</body>
-</html>
