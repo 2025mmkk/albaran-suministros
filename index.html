@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v2.0</title>
+  <title>Albarán Móvil v3.0</title>
   <script src="https://sheetjs.com"></script>
   <script src="https://unpkg.com" type="text/javascript"></script>
   <style>
@@ -36,7 +36,7 @@
 </head>
 <body>
 
-  <!-- BARRA SUPERIOR DE CONFIGURACIÓN GUARDADA -->
+  <!-- BARRA SUPERIOR DE CONFIGURACIÓN -->
   <div id="configBanner" class="config-banner" style="display:none;">
     <button type="button" class="small-btn" onclick="abrirConfig()">⚙️ Cambiar destino</button>
     <span id="resumenConfig"></span>
@@ -44,8 +44,8 @@
 
   <!-- 0. CONFIGURACIÓN INICIAL -->
   <div class="card" id="setupSection">
-    <h2>⚙️ Configuración de Envío (v2.0)</h2>
-    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Rellena el destino al que quieres enviar los albaranes (puedes rellenar uno o ambos):</p>
+    <h2>⚙️ Configuración de Envío (v3.0)</h2>
+    <p style="font-size: 0.85rem; color: #525252; margin-top: 0;">Define a dónde se enviarán los albaranes (puedes rellenar uno o ambos):</p>
     
     <label for="destinoWhatsapp">📱 Teléfono WhatsApp (con prefijo país, ej: 34600112233):</label>
     <input type="tel" id="destinoWhatsapp" placeholder="34600112233" />
@@ -54,13 +54,13 @@
     <input type="email" id="destinoEmail" placeholder="almacen@empresa.com" />
 
     <button type="button" class="success" onclick="guardarConfig()">💾 Guardar y Entrar a la App</button>
-    <button type="button" class="secondary" onclick="entrarSinConfig()">⏩ Entrar directamente (Configurar luego)</button>
+    <button type="button" class="secondary" onclick="mostrarApp()">⏩ Entrar directamente sin configurar</button>
   </div>
 
   <!-- APLICACIÓN PRINCIPAL -->
   <div id="appPrincipal" style="display:none;">
     
-    <div id="dbStatus" class="status-bar">⏳ Cargando base de datos desde GitHub...</div>
+    <div id="dbStatus" class="status-bar">⏳ Conectando con datos.xlsx...</div>
 
     <!-- 1. DATOS DEL CLIENTE -->
     <div class="card" id="clienteSection" style="display:none;">
@@ -128,18 +128,14 @@
       var em = document.getElementById('destinoEmail').value.trim();
 
       if (!wa && !em) {
-        alert("Introduce al menos un teléfono de WhatsApp o un Correo Electrónico, o pulsa 'Entrar directamente'.");
+        alert("Introduce un teléfono WhatsApp o un Correo Electrónico, o pulsa 'Entrar directamente'.");
         return;
       }
 
       configActual = { whatsapp: wa, email: em };
       try {
-        localStorage.setItem('albaran_config_v2', JSON.stringify(configActual));
+        localStorage.setItem('albaran_config_v3', JSON.stringify(configActual));
       } catch (e) {}
-      mostrarApp();
-    }
-
-    function entrarSinConfig() {
       mostrarApp();
     }
 
@@ -164,7 +160,7 @@
 
     window.onload = function() {
       try {
-        var guardada = localStorage.getItem('albaran_config_v2');
+        var guardada = localStorage.getItem('albaran_config_v3');
         if (guardada) {
           configActual = JSON.parse(guardada);
           mostrarApp();
@@ -177,18 +173,20 @@
       var statusDiv = document.getElementById('dbStatus');
       fetch('datos.xlsx?t=' + Date.now())
         .then(function(res) {
-          if (!res.ok) throw new Error('No se encuentra datos.xlsx');
+          if (!res.ok) throw new Error('Archivo no encontrado');
           return res.arrayBuffer();
         })
         .then(function(buf) {
           var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-          var hoja = wb.Sheets[wb.SheetNames[0]];
-          var filas = XLSX.utils.sheet_to_json(hoja, { header: 1 });
+          var nombrePrimeraHoja = wb.SheetNames.at(0);
+          var hoja = wb.Sheets[nombrePrimeraHoja];
+          // Leemos usando letras de columna (A, B, C, D, E, F, G)
+          var filas = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
           procesarHojaMaestra(filas);
         })
         .catch(function(err) {
           statusDiv.className = 'status-bar status-error';
-          statusDiv.innerHTML = '❌ <b>Falta datos.xlsx:</b> Sube tu archivo Excel renombrado como <b>datos.xlsx</b> a tu repositorio de GitHub.';
+          statusDiv.innerHTML = '❌ <b>No se pudo leer datos.xlsx:</b> Verifica que el archivo en GitHub se llame exactamente <b>datos.xlsx</b> en minúsculas.';
         });
     }
 
@@ -198,11 +196,9 @@
       var modo = '';
 
       for (var i = 0; i < filas.length; i++) {
-        var f = filas[i];
-        if (!f || f.length === 0) continue;
-
-        var colB = (f[1] !== undefined && f[1] !== null) ? f[1].toString().trim() : '';
-        var colC = (f[2] !== undefined && f[2] !== null) ? f[2].toString().trim() : '';
+        var f = filas.at(i);
+        var colB = String(f.B || '').trim();
+        var colC = String(f.C || '').trim();
 
         if (colB === 'ARTICULO') { modo = 'ARTICULOS'; continue; }
         if (colB === 'NOMBRE DE RESTAURANTE') { modo = 'CLIENTES'; continue; }
@@ -211,10 +207,10 @@
           baseArticulos.push({
             articulo: colB,
             eanUnidad: colC,
-            eanCaja: (f[3] !== undefined && f[3] !== null) ? f[3].toString().trim() : '',
-            equivalencia: parseFloat(f[4]) || 1,
-            precioUnidad: parseFloat(f[5]) || 0,
-            precioCaja: parseFloat(f[6]) || 0
+            eanCaja: String(f.D || '').trim(),
+            equivalencia: parseFloat(f.E) || 1,
+            precioUnidad: parseFloat(f.F) || 0,
+            precioCaja: parseFloat(f.G) || 0
           });
         } else if (modo === 'CLIENTES' && colB !== '') {
           baseClientes.push({ nombre: colB, cuenta: colC });
@@ -223,3 +219,6 @@
 
       var select = document.getElementById('selectCliente');
       select.innerHTML = '';
+      for (var j = 0; j < baseClientes.length; j++) {
+        var cli = baseClientes.at(j);
+        var opt = document.createElement('option');
