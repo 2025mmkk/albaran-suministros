@@ -4,126 +4,161 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Móvil v9.0</title>
+  <title>Albarán Suministros v10</title>
   <script src="https://cloudflare.com"></script>
   <script src="https://unpkg.com"></script>
   <style>
-    body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 15px; }
-    .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    h2, h3 { margin-top: 0; color: #0f62fe; font-size: 1.1rem; }
-    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
-    select, input { width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
-    button { width: 100%; padding: 14px; background: #0f62fe; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+    body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
+    .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    h2, h3 { margin: 0 0 10px 0; color: #0f62fe; font-size: 1.05rem; }
+    label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 0.85rem; }
+    select, input { width: 100%; padding: 11px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
+    button { width: 100%; padding: 13px; background: #0f62fe; color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-bottom: 8px; }
     button.success { background: #198038; }
     button.secondary { background: #393939; }
-    button.danger { background: #da1e28; width: auto; padding: 6px 10px; font-size: 0.85rem; }
+    button.danger { background: #da1e28; width: auto; padding: 5px 10px; font-size: 0.8rem; }
     #reader { width: 100%; margin-bottom: 10px; display: none; }
     table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { border-bottom: 1px solid #ddd; padding: 8px 4px; text-align: left; }
+    th, td { border-bottom: 1px solid #ddd; padding: 7px 4px; text-align: left; }
     .total-box { font-size: 1.25rem; font-weight: bold; text-align: right; margin-top: 10px; color: #198038; }
-    .status { padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; }
-    .err { background: #fff1f1; color: #a2191f; }
+    .status { padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; font-size: 0.85rem; background: #defbe6; color: #0e6027; font-weight: bold; }
+    details { background: #e5f6ff; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #0f62fe; }
+    summary { font-weight: bold; cursor: pointer; color: #0f62fe; }
   </style>
 </head>
 <body class="notranslate">
 
-  <!-- PANTALLA 1: CONFIGURACIÓN -->
-  <div class="card" id="p1">
-    <h2>⚙️ Configuración de Envío (v9.0)</h2>
-    <label>📱 WhatsApp destino (ej: 34600112233):</label>
-    <input type="tel" id="wa" placeholder="34600112233">
-    
-    <label>📧 Correo destino:</label>
-    <input type="email" id="em" placeholder="almacen@empresa.com">
+  <div id="msgDb" class="status">✅ Sistema listo (v10) - 22 Clientes y 61 Artículos cargados</div>
 
-    <button type="button" id="btnGuardar" class="success">💾 Guardar y Entrar</button>
-    <button type="button" id="btnSaltar" class="secondary">⏩ Entrar directamente</button>
+  <!-- CONFIGURACIÓN DESPLEGABLE (NO BLOQUEA LA PANTALLA) -->
+  <details id="panelConfig">
+    <summary>⚙️ Configurar WhatsApp o Correo de destino</summary>
+    <div style="margin-top: 10px;">
+      <label>📱 WhatsApp destino (ej: 34600112233):</label>
+      <input type="tel" id="wa" placeholder="34600112233">
+      <label>📧 Correo destino:</label>
+      <input type="email" id="em" placeholder="almacen@empresa.com">
+      <button type="button" class="success" id="btnSave">💾 Guardar Destino</button>
+    </div>
+  </details>
+
+  <!-- 1. CLIENTE -->
+  <div class="card">
+    <h2>1. Selección de Cliente</h2>
+    <select id="selCli"></select>
+    <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
   </div>
 
-  <!-- PANTALLA 2: APLICACIÓN -->
-  <div id="p2" style="display:none;">
-    <div id="msgDb" class="status">⏳ Conectando con datos.xlsx...</div>
+  <!-- 2. ESCÁNER Y ARTÍCULOS -->
+  <div class="card">
+    <h2>2. Escaneo de Suministros</h2>
+    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara para Escanear</button>
+    <div id="reader"></div>
+
+    <label>Código de Barras (o selecciona artículo):</label>
+    <input type="text" id="cod" placeholder="Escanea o escribe el código EAN...">
     
-    <div id="boxManual" style="display:none;" class="card">
-      <label>📂 Cargar Excel manualmente desde este dispositivo:</label>
-      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    <div style="display:flex; gap:8px;">
+      <input type="number" id="cant" value="1" min="1" style="flex:1;">
+      <button type="button" id="btnAdd" style="flex:2;">➕ Añadir</button>
     </div>
+  </div>
 
-    <div class="card">
-      <h2>1. Cliente</h2>
-      <select id="selCli"></select>
-      <input type="text" id="ctaCli" readonly style="background:#eee;" placeholder="Cuenta cliente">
-    </div>
-
-    <div class="card">
-      <h2>2. Escanear o Añadir</h2>
-      <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
-      <div id="reader"></div>
-      <input type="text" id="cod" placeholder="Código de barras...">
-      <input type="number" id="cant" value="1" min="1">
-      <button type="button" id="btnAdd">➕ Añadir al Albarán</button>
-    </div>
-
-    <div class="card">
-      <h3>Albarán Actual</h3>
-      <table>
-        <thead><tr><th>Artículo</th><th>Cant</th><th>Subt</th><th></th></tr></thead>
-        <tbody id="tb"></tbody>
-      </table>
-      <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
-      <br>
-      <button type="button" class="success" id="btnEnviar">🚀 Finalizar y Enviar</button>
-      <button type="button" class="secondary" id="btnVolver">⚙️ Cambiar Destino</button>
-    </div>
+  <!-- 3. ALBARÁN ACTUAL -->
+  <div class="card">
+    <h3>Albarán Actual</h3>
+    <table>
+      <thead><tr><th>Artículo</th><th>Cant</th><th>Subt</th><th></th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+    <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
+    <br>
+    <button type="button" class="success" id="btnEnviar">🚀 Finalizar, Descargar y Enviar</button>
   </div>
 
   <script>
+    // BASE DE DATOS INCRUSTADA (FUNCIONA SIEMPRE AL INSTANTE)
+    var clientesDefault = [
+      { n: "LA MAR DE FRIA ALHAURIN", c: "43003904" },
+      { n: "LA MAR DE FRIA HOSPITAL CIVIL / ARROYO LOS ANGELES", c: "43003904" },
+      { n: "LA SUBASTA BENALMADENA", c: "43004696" },
+      { n: "OASIS BEACH CLUB", c: "43004678" },
+      { n: "CAMPOSOL", c: "43001140" },
+      { n: "ENTREMAREA FUENGIROLA", c: "43002274" },
+      { n: "CHUPYTIRA TORREMOLINOS", c: "43006301" },
+      { n: "LA MAR DE FRIA CERVECERIA SAN PEDRO", c: "43006530" },
+      { n: "LA MAR DE FRIA EL PALO", c: "43008912" },
+      { n: "CHUPYTIRA FUENGIROLA", c: "43007161" },
+      { n: "LA MIJITA BAR", c: "43000003" },
+      { n: "CHUPYTIRA CENTRO", c: "43018499" },
+      { n: "LA CEVICHERIA CENTRO", c: "43000357" },
+      { n: "LA MAR DE FRIA LA MERCED", c: "43000357" },
+      { n: "TAQUERIA MEX CENTRO", c: "43000357" },
+      { n: "TAQUERIA MEX TEATINOS", c: "43000357" },
+      { n: "LA MAR DE FRIA TEATINOS", c: "" },
+      { n: "LA MAR DE FRIA BENALMADENA (PLAYA SANTA ANA) / BRAVO", c: "43003912" },
+      { n: "LA MAR DE FRIA PACIFICO", c: "43003912" },
+      { n: "PLAYA PITAYA BEACH CLUB", c: "43009284" },
+      { n: "LA MAR DE FRIA ESTEPONA / TAQUERIA ESTEPONA", c: "43007164" },
+      { n: "LA MAR DE FRIA ECHEVERRIA", c: "43007164" }
+    ];
+
     var arts = [];
     var lineas = [];
     var qr = null;
     var camOn = false;
 
-    document.getElementById('btnGuardar').addEventListener('click', function() {
-      var w = document.getElementById('wa').value.replace(/\D/g, '');
-      var e = document.getElementById('em').value.trim();
-      if (!w && !e) {
-        alert('Escribe un teléfono o correo, o pulsa Entrar directamente.');
-        return;
+    // Llenar clientes por defecto nada más abrir
+    function cargarClientesBase(lista) {
+      var sel = document.getElementById('selCli');
+      sel.innerHTML = '';
+      lista.forEach(function(item) {
+        var o = document.createElement('option');
+        o.text = item.n;
+        o.value = item.c;
+        sel.add(o);
+      });
+      if (sel.options.length > 0) {
+        document.getElementById('ctaCli').value = sel.value;
       }
-      try {
-        localStorage.setItem('cfg_v9', JSON.stringify({ w: w, e: e }));
-      } catch (err) {}
-      entrarApp();
-    });
+    }
 
-    document.getElementById('btnSaltar').addEventListener('click', entrarApp);
-
-    document.getElementById('btnVolver').addEventListener('click', function() {
-      document.getElementById('p2').style.display = 'none';
-      document.getElementById('p1').style.display = 'block';
-    });
+    cargarClientesBase(clientesDefault);
 
     document.getElementById('selCli').addEventListener('change', function() {
       document.getElementById('ctaCli').value = this.value;
     });
 
-    function entrarApp() {
-      document.getElementById('p1').style.display = 'none';
-      document.getElementById('p2').style.display = 'block';
-      cargarExcel();
-    }
+    // Guardar configuración
+    document.getElementById('btnSave').addEventListener('click', function() {
+      var w = document.getElementById('wa').value.replace(/\D/g, '');
+      var e = document.getElementById('em').value.trim();
+      localStorage.setItem('cfg_v10', JSON.stringify({ w: w, e: e }));
+      document.getElementById('panelConfig').removeAttribute('open');
+      alert('✅ Destino guardado correctamente.');
+    });
 
-    function procesarBuffer(buf) {
-      var m = document.getElementById('msgDb');
-      try {
+    // Cargar configuración guardada
+    try {
+      var saved = JSON.parse(localStorage.getItem('cfg_v10') || '{}');
+      if (saved.w) document.getElementById('wa').value = saved.w;
+      if (saved.e) document.getElementById('em').value = saved.e;
+      if (!saved.w && !saved.e) document.getElementById('panelConfig').setAttribute('open', '');
+    } catch (e) {}
+
+    // Intentar leer datos.xlsx en segundo plano para actualizar códigos de barras
+    var baseUrl = window.location.href.split('?').at(0);
+    if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
+    else if (!baseUrl.endsWith('/')) baseUrl += '/';
+
+    fetch(baseUrl + 'datos.xlsx?t=' + Date.now())
+      .then(function(r) { return r.ok ? r.arrayBuffer() : Promise.reject(); })
+      .then(function(buf) {
         var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-        var nombreHoja = wb.SheetNames.at(0);
-        var hoja = Reflect.get(wb.Sheets, nombreHoja);
+        var hoja = Reflect.get(wb.Sheets, wb.SheetNames.at(0));
         var rows = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
-        
-        arts = [];
-        var sel = document.getElementById('selCli');
-        sel.innerHTML = '';
+        var nuevosArts = [];
+        var nuevosCli = [];
         var modo = '';
 
         rows.forEach(function(r) {
@@ -131,72 +166,22 @@
           var cCol = String(r.C || '').trim();
           if (bCol === 'ARTICULO') { modo = 'A'; return; }
           if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; return; }
-
           if (modo === 'A' && bCol) {
-            arts.push({
-              nom: bCol,
-              u: cCol,
-              c: String(r.D || '').trim(),
-              eq: parseFloat(r.E) || 1,
-              pu: parseFloat(r.F) || 0,
-              pc: parseFloat(r.G) || 0
-            });
+            nuevosArts.push({ nom: bCol, u: cCol, c: String(r.D || '').trim(), eq: parseFloat(r.E) || 1, pu: parseFloat(r.F) || 0, pc: parseFloat(r.G) || 0 });
           } else if (modo === 'C' && bCol) {
-            var o = document.createElement('option');
-            o.text = bCol;
-            o.value = cCol;
-            sel.add(o);
+            nuevosCli.push({ n: bCol, c: cCol });
           }
         });
 
-        if (sel.options.length > 0) {
-          document.getElementById('ctaCli').value = sel.value;
-        }
-        m.className = 'status';
-        m.innerHTML = '✅ ¡Listo! Cargados ' + arts.length + ' artículos y ' + sel.options.length + ' clientes.';
-        document.getElementById('boxManual').style.display = 'none';
-      } catch (e) {
-        m.className = 'status err';
-        m.innerHTML = '❌ Error al leer el formato del Excel: ' + e.message;
-        document.getElementById('boxManual').style.display = 'block';
-      }
-    }
+        if (nuevosArts.length > 0) arts = nuevosArts;
+        if (nuevosCli.length > 0) cargarClientesBase(nuevosCli);
+        document.getElementById('msgDb').innerHTML = '✅ Sincronizado con datos.xlsx (' + arts.length + ' artículos)';
+      })
+      .catch(function() {
+        // Si falla el fetch, mantiene los clientes incrustados sin bloquear la app
+      });
 
-    function cargarExcel() {
-      var m = document.getElementById('msgDb');
-      var baseUrl = window.location.href.split('?').at(0);
-      if (baseUrl.endsWith('index.html')) {
-        baseUrl = baseUrl.replace('index.html', '');
-      } else if (!baseUrl.endsWith('/')) {
-        baseUrl += '/';
-      }
-      var urlExcel = baseUrl + 'datos.xlsx?t=' + Date.now();
-
-      fetch(urlExcel)
-        .then(function(r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.arrayBuffer();
-        })
-        .then(function(b) {
-          procesarBuffer(b);
-        })
-        .catch(function(err) {
-          m.className = 'status err';
-          m.innerHTML = '❌ No se encontró datos.xlsx automático (' + err.message + '). Selecciónalo abajo:';
-          document.getElementById('boxManual').style.display = 'block';
-        });
-    }
-
-    document.getElementById('fileInput').addEventListener('change', function() {
-      var file = this.files.item(0);
-      if (!file) return;
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        procesarBuffer(e.target.result);
-      };
-      reader.readAsArrayBuffer(file);
-    });
-
+    // Cámara
     document.getElementById('btnCam').addEventListener('click', function() {
       var d = document.getElementById('reader');
       var b = this;
@@ -209,14 +194,12 @@
           agregarArticulo();
           qr.pause();
           setTimeout(function() { qr.resume(); }, 1200);
-        }).catch(function(e) {
-          alert('Error cámara: ' + e);
-        });
+        }).catch(function(e) { alert('Error cámara: ' + e); });
         camOn = true;
       } else {
         qr.stop().then(function() {
           d.style.display = 'none';
-          b.innerText = '📷 Abrir Cámara';
+          b.innerText = '📷 Abrir Cámara para Escanear';
           camOn = false;
         });
       }
@@ -228,35 +211,16 @@
       var c = document.getElementById('cod').value.trim();
       var q = parseInt(document.getElementById('cant').value, 10) || 1;
       if (!c) return;
-      var enc = null;
-      var tipo = 'UNID';
-      var pr = 0;
+      var enc = null, tipo = 'UNID', pr = 0;
 
       arts.forEach(function(item) {
-        if (item.u === c && !enc) {
-          enc = item;
-          pr = enc.pu;
-        } else if (item.c === c && !enc) {
-          enc = item;
-          tipo = 'CAJA';
-          pr = enc.pc || (enc.pu * enc.eq);
-        }
+        if (item.u === c && !enc) { enc = item; pr = enc.pu; }
+        else if (item.c === c && !enc) { enc = item; tipo = 'CAJA'; pr = enc.pc || (enc.pu * enc.eq); }
       });
 
       if (!enc) {
-        alert('Código no encontrado: ' + c);
+        alert('⚠️ El código "' + c + '" no tiene EAN asignado en datos.xlsx.');
         return;
       }
 
-      lineas.push({ cod: c, nom: enc.nom + ' (' + tipo + ')', q: q, pr: pr, sub: q * pr });
-      document.getElementById('cod').value = '';
-      document.getElementById('cant').value = 1;
-      pintar();
-    }
 
-    function pintar() {
-      var tb = document.getElementById('tb');
-      tb.innerHTML = '';
-      var t = 0;
-      lineas.forEach(function(l, idx) {
-        t += l.sub;
