@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Albarán Suministros v14</title>
-  <script src="https://jsdelivr.net"></script>
+  <title>Albarán Suministros v15</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; color: #161616; margin: 0; padding: 12px; }
     .card { background: #fff; border-radius: 10px; padding: 15px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -30,7 +29,7 @@
 </head>
 <body class="notranslate">
 
-  <div id="msgDb" class="status">⏳ Iniciando v14...</div>
+  <div id="msgDb" class="status">⏳ Iniciando...</div>
 
   <!-- CONFIGURACIÓN DESPLEGABLE -->
   <details id="panelConfig">
@@ -40,7 +39,7 @@
       <input type="tel" id="wa" placeholder="34600112233">
       <label>📧 Correo destino:</label>
       <input type="email" id="em" placeholder="almacen@empresa.com">
-      <button type="button" class="success" onclick="guardarDestino()">💾 Guardar Destino</button>
+      <button type="button" class="success" id="btnSave">💾 Guardar Destino</button>
     </div>
   </details>
 
@@ -48,7 +47,7 @@
   <div class="card">
     <h2>1. Datos del Albarán</h2>
     <label for="selCli">Restaurante:</label>
-    <select id="selCli" onchange="document.getElementById('ctaCli').value = this.value"></select>
+    <select id="selCli"></select>
 
     <div class="fila-doble">
       <div>
@@ -65,7 +64,7 @@
   <!-- 2. ESCÁNER NATIVO -->
   <div class="card">
     <h2>2. Escaneo de Suministros</h2>
-    <button type="button" class="secondary" id="btnCam" onclick="alternarCamara()">📷 Abrir Cámara</button>
+    <button type="button" class="secondary" id="btnCam">📷 Abrir Cámara</button>
     <div id="camMsg" class="aviso"></div>
     <video id="videoPreview" playsinline autoplay muted></video>
 
@@ -74,7 +73,7 @@
     
     <div style="display:flex; gap:8px;">
       <input type="number" id="cant" value="1" min="1" style="flex:1;">
-      <button type="button" onclick="agregarArticulo()" style="flex:2;">➕ Añadir</button>
+      <button type="button" id="btnAdd" style="flex:2;">➕ Añadir</button>
     </div>
   </div>
 
@@ -87,7 +86,7 @@
     </table>
     <div class="total-box">TOTAL: <span id="tot">0.00</span> €</div>
     <br>
-    <button type="button" class="success" onclick="finalizarAlbaran()">🚀 Finalizar, Descargar y Enviar</button>
+    <button type="button" class="success" id="btnEnviar">🚀 Finalizar, Descargar y Enviar</button>
   </div>
 
   <script>
@@ -96,11 +95,12 @@
     var streamActivo = null;
     var intervaloScan = null;
 
-    // 1. Poner fecha de hoy
+    // 1. Poner fecha de hoy inmediatamente
     var hoy = new Date();
-    document.getElementById('fechaAlb').value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    var fHoy = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') + '-' + String(hoy.getDate()).padStart(2, '0');
+    document.getElementById('fechaAlb').value = fHoy;
 
-    // 2. Cargar lista base de clientes sin usar corchetes
+    // 2. Cargar los 22 clientes
     var sel = document.getElementById('selCli');
     function addCli(nombre, cuenta) {
       var o = document.createElement('option');
@@ -133,87 +133,79 @@
     addCli("LA MAR DE FRIA ECHEVERRIA", "43007164");
 
     document.getElementById('ctaCli').value = sel.value;
-    document.getElementById('msgDb').innerHTML = '✅ v14 Activa - 22 clientes listos. Buscando datos.xlsx...';
+    sel.addEventListener('change', function() {
+      document.getElementById('ctaCli').value = this.value;
+    });
 
-    // 3. Cargar configuración
-    try {
-      var saved = JSON.parse(localStorage.getItem('cfg_v14') || '{}');
-      if (saved.w) document.getElementById('wa').value = saved.w;
-      if (saved.e) document.getElementById('em').value = saved.e;
-    } catch (e) {}
-
-    function guardarDestino() {
-      var w = document.getElementById('wa').value.replace(/\D/g, '');
-      var e = document.getElementById('em').value.trim();
-      localStorage.setItem('cfg_v14', JSON.stringify({ w: w, e: e }));
-      document.getElementById('panelConfig').removeAttribute('open');
-      alert('✅ Destino guardado.');
+    // 3. Cargar catálogo de 61 artículos (añade tus EAN entre las comillas de u y c cuando los tengas)
+    function addCat(nom, eanU, eanC, eq, pU, pC) {
+      arts.push({ nom: nom, u: eanU, c: eanC, eq: eq, pu: pU, pc: pC });
     }
+    addCat("ABRILLANTADOR MQ 5LT", "", "", 1, 4.73, 0);
+    addCat("ACEITE OLIVA EV 5LT", "", "", 1, 19.75, 0);
+    addCat("ACEITE GUADALIMAR 5LT", "", "", 1, 0, 0);
+    addCat("BAYETA 30X40 AMARILLA 10U", "", "", 1, 3.20, 0);
+    addCat("BAYETA 30X40 AZUL 10U", "", "", 1, 3.20, 0);
+    addCat("BAYETA 30X40 ROJA 10U", "", "", 1, 3.20, 0);
+    addCat("BAYETA 30X40 VERDE 10U", "", "", 1, 3.20, 0);
+    addCat("BAYETA PUNTO AZ 3K", "", "", 1, 9.91, 0);
+    addCat("SECAMANOS EXTRA", "", "", 1, 0, 0);
+    addCat("BOLSA 115X150 10U", "", "", 1, 0, 0);
+    addCat("BOLSA 52X60", "", "", 1, 0, 0);
+    addCat("BOLSA AUTOCIERRE", "", "", 1, 0, 0);
+    addCat("BOLSA CAMISETA 1K", "", "", 1, 0, 0);
+    addCat("CEPILLO", "", "", 1, 0, 0);
+    addCat("CUBO + ESCURRIDOR", "", "", 1, 0, 0);
+    addCat("SECAVAJILLA (DRAP ROLL / LITO)", "", "", 1, 0, 0);
+    addCat("SECAVAJILLA DRAP ROLL NEGRO", "", "", 1, 0, 0);
+    addCat("PULVERIZADOR (BOTELLA DEDINES 750)", "", "", 1, 0, 0);
+    addCat("CABEZAL PULVERIZADOR (DEDINES)", "", "", 1, 0, 0);
+    addCat("CARBON", "", "", 1, 0, 0);
+    addCat("DESENGRASANTE ENERGICO 5LT", "", "", 1, 0, 0);
+    addCat("DESENGRASANTE PLANCHA 5LT", "", "", 1, 0, 0);
+    addCat("DETERGENTE AGUAS DURAS 5LT", "", "", 1, 0, 0);
+    addCat("DETERGENTE CLORADO 5LT", "", "", 1, 0, 0);
+    addCat("DETERGENTE MANUAL / MISTOL 5LT", "", "", 1, 0, 0);
+    addCat("DETERGENTE MAQUINA 5LT", "", "", 1, 0, 0);
+    addCat("ENVASE POLLO", "", "", 1, 0, 0);
+    addCat("TAPA ENVASE POLLO", "", "", 1, 0, 0);
+    addCat("ESTROPAJO AC INOX (NANA)", "", "", 1, 0, 0);
+    addCat("FREGASUELO 5LT", "", "", 1, 0, 0);
+    addCat("FREGONA", "", "", 1, 0, 0);
+    addCat("GEL DERMO 5LT", "", "", 1, 0, 0);
+    addCat("GUANTE L", "", "", 1, 0, 0);
+    addCat("GUANTE M", "", "", 1, 0, 0);
+    addCat("GUANTE S", "", "", 1, 0, 0);
+    addCat("GUANTE XL", "", "", 1, 0, 0);
+    addCat("HIGIENICO INDUSTRIAL", "", "", 1, 0, 0);
+    addCat("LEJIA ALIMENTARIA", "", "", 1, 0, 0);
+    addCat("LIMPIACRISTALES 5LT", "", "", 1, 0, 0);
+    addCat("LIMPIADOR AMONIACAL 5LT", "", "", 1, 0, 0);
+    addCat("MANGA PASTELERA", "", "", 1, 0, 0);
+    addCat("MANGO METALICO PINTADO", "", "", 1, 0, 0);
+    addCat("MANTEL 1X1 BURDEO", "", "", 1, 0, 0);
+    addCat("MANTEL 1X1,2 BURDEO", "", "", 1, 0, 0);
+    addCat("MINIKANGUR ECO", "", "", 1, 0, 0);
+    addCat("RECOGEDOR C/PALO", "", "", 1, 0, 0);
+    addCat("ROLLO ALUMINIO", "", "", 1, 0, 0);
+    addCat("ROLLO FILM", "", "", 1, 0, 0);
+    addCat("ROLLO SUMADORA", "", "", 1, 0, 0);
+    addCat("ROLLO TERMICO (DATAFONO)", "", "", 1, 0, 0);
+    addCat("SALVAUÑAS", "", "", 1, 0, 0);
+    addCat("SERV.DUPLO 30X30", "", "", 1, 0, 0);
+    addCat("SERV.COCTEL 20X20", "", "", 1, 0, 0);
+    addCat("SERV TISSUE 11X21", "", "", 1, 0, 0);
+    addCat("SERV. 40X40 PTA PTA BURDEOS", "", "", 1, 0, 0);
+    addCat("SORBETE", "", "", 1, 0, 0);
+    addCat("TAPA REDONDA 60CC", "", "", 1, 0, 0);
+    addCat("TARRINA SALSA 60CC", "", "", 1, 0, 0);
+    addCat("TOALLA ENGARZADA TISSUE", "", "", 1, 0, 0);
+    addCat("TOALLITAS LIMON", "", "", 1, 0, 0);
+    addCat("VINAGRE LIMPIEZA 1L", "", "", 1, 0, 0);
 
-    // 4. Leer datos.xlsx desde GitHub para traer tus códigos de barras y precios
-    var baseUrl = window.location.href.split('?').at(0);
-    if (baseUrl.endsWith('index.html')) baseUrl = baseUrl.replace('index.html', '');
-    else if (!baseUrl.endsWith('/')) baseUrl += '/';
+    // Confirmación visual inmediata de que JavaScript arrancó
+    document.getElementById('msgDb').innerHTML = '✅ v15 Activa (100% Autónoma) - ' + sel.options.length + ' clientes y ' + arts.length + ' artículos listos';
 
-    fetch(baseUrl + 'datos.xlsx?t=' + Date.now())
-      .then(function(r) { return r.ok ? r.arrayBuffer() : Promise.reject('HTTP ' + r.status); })
-      .then(function(buf) {
-        if (typeof XLSX === 'undefined') throw new Error('Librería Excel no cargada');
-        var wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
-        var hoja = Reflect.get(wb.Sheets, wb.SheetNames.at(0));
-        var rows = XLSX.utils.sheet_to_json(hoja, { header: 'A', defval: '' });
-        
-        arts = new Array();
-        var modo = '';
-        rows.forEach(function(r) {
-          var bCol = String(r.B || '').trim();
-          var cCol = String(r.C || '').trim();
-          if (bCol === 'ARTICULO') { modo = 'A'; return; }
-          if (bCol === 'NOMBRE DE RESTAURANTE') { modo = 'C'; return; }
-          if (modo === 'A' && bCol) {
-            arts.push({
-              nom: bCol,
-              u: cCol,
-              c: String(r.D || '').trim(),
-              eq: parseFloat(r.E) || 1,
-              pu: parseFloat(r.F) || 0,
-              pc: parseFloat(r.G) || 0
-            });
-          }
-        });
-        document.getElementById('msgDb').innerHTML = '✅ v14 Activa - ' + arts.length + ' artículos cargados desde datos.xlsx';
-      })
-      .catch(function(err) {
-        document.getElementById('msgDb').innerHTML = '⚠️ v14 Activa (22 clientes listos). No se leyó datos.xlsx: ' + err;
-      });
-
-    // 5. Cámara nativa directa
-    function alternarCamara() {
-      var video = document.getElementById('videoPreview');
-      var btn = document.getElementById('btnCam');
-      var msg = document.getElementById('camMsg');
-      msg.style.display = 'none';
-
-      if (streamActivo) {
-        detenerCamara();
-        return;
-      }
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        msg.style.display = 'block';
-        msg.innerText = '⚠️ Abre este enlace en Google Chrome o Safari (no dentro de WhatsApp).';
-        return;
-      }
-
-      btn.innerText = '⏳ Abriendo cámara...';
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then(function(stream) {
-          streamActivo = stream;
-          video.srcObject = stream;
-          video.style.display = 'block';
-          btn.innerText = '⏹️ Cerrar Cámara';
-
-          if ('BarcodeDetector' in window) {
-            var detector = new BarcodeDetector({ formats: new Array('ean_13', 'ean_8', 'code_128', 'qr_code', 'upc_a') });
-            intervaloScan = setInterval(function() {
-              if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    // 4. Configuración guardada
+    try {
+      var saved = JSON.parse(localStorage.getItem('cfg_v15') || '{}');
